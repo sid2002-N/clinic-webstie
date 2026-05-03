@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: motivation
+    description: AI motivation operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /motivation:
+    get:
+      operationId: getMotivation
+      tags: [motivation]
+      summary: Get AI motivational message
+      description: Generates a short motivational message based on habits completed today
+      parameters:
+        - name: completed
+          in: query
+          description: Number of habits completed today
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Motivational message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MotivationResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    MotivationResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        date:
+          type: string
+      required:
+        - message
+        - date

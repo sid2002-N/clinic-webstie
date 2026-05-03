@@ -1,0 +1,13 @@
+uploads = []
+
+[[generated]]
+id = "xbUN4oGqJmji5oyfqSOaY"
+uri = "file://artifacts/habitspark/assets/images/icon.png"
+type = "image"
+title = "habitspark icon"
+
+[[outputs]]
+id = "5PaFB_k6tBkYbIwTx6u_K"
+uri = "file://done.md"
+type = "text"
+title = "HabitSpark — What Was Implemented"

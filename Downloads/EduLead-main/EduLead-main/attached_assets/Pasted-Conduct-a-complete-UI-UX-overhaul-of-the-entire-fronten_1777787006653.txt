@@ -1,0 +1,1377 @@
+Conduct a complete UI/UX overhaul of the entire frontend. Do NOT touch any API calls, WebSocket logic, business logic, or routing. Only improve visual design, layout, spacing, typography, animations, and component quality. Apply every instruction below across every single page and component in the project. Work through each step in order and confirm completion before moving to the next.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 0 — INSTALL DEPENDENCIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run these commands in the project root before touching any files:
+
+  npm install animejs react-hot-toast lucide-react
+
+Import anime.js in components using:
+  import anime from 'animejs/lib/anime.es.js';
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — DESIGN TOKENS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create the file: frontend/src/styles/tokens.css
+
+Paste this content exactly:
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Brand */
+  --brand-950: #080f1a;
+  --brand-900: #0f2137;
+  --brand-800: #1E3A5F;
+  --brand-700: #254d7a;
+  --brand-600: #2e6096;
+  --brand-500: #3b76b5;
+  --brand-400: #5a93c8;
+  --brand-200: #a8c8e8;
+  --brand-100: #d4e4f4;
+  --brand-50:  #edf4fb;
+
+  /* Kerala green accent */
+  --green-900: #0f2d1c;
+  --green-800: #1a4d2e;
+  --green-700: #2D7D46;
+  --green-600: #38a057;
+  --green-100: #d1fae5;
+  --green-50:  #ecfdf5;
+
+  /* Lead category tokens */
+  --hot-fill:   #dcfce7;
+  --hot-border: #86efac;
+  --hot-text:   #15803d;
+  --hot-dot:    #16a34a;
+
+  --warm-fill:   #fef9c3;
+  --warm-border: #fde047;
+  --warm-text:   #92400e;
+  --warm-dot:    #d97706;
+
+  --cold-fill:   #f3f4f6;
+  --cold-border: #d1d5db;
+  --cold-text:   #4b5563;
+  --cold-dot:    #9ca3af;
+
+  /* Surfaces */
+  --surface-base:    #ffffff;
+  --surface-raised:  #ffffff;
+  --surface-subtle:  #f8fafc;
+  --surface-muted:   #f1f5f9;
+  --surface-overlay: rgba(15, 33, 55, 0.45);
+
+  /* Text */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary:  #94a3b8;
+  --text-disabled:  #cbd5e1;
+  --text-inverse:   #ffffff;
+  --text-brand:     var(--brand-700);
+  --text-success:   #15803d;
+  --text-warning:   #92400e;
+  --text-danger:    #b91c1c;
+
+  /* Borders */
+  --border-subtle:  #f1f5f9;
+  --border-default: #e2e8f0;
+  --border-strong:  #cbd5e1;
+  --border-focus:   var(--brand-500);
+  --border-brand:   var(--brand-600);
+
+  /* Shadows */
+  --shadow-xs:          0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm:          0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:          0 4px 8px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:          0 12px 24px rgba(0,0,0,0.07), 0 4px 8px rgba(0,0,0,0.04);
+  --shadow-xl:          0 24px 48px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.04);
+  --shadow-focus:       0 0 0 3px rgba(59,118,181,0.20);
+  --shadow-focus-danger:0 0 0 3px rgba(239,68,68,0.18);
+
+  /* Radius */
+  --r-xs:   4px;
+  --r-sm:   6px;
+  --r-md:   10px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-2xl:  28px;
+  --r-full: 9999px;
+
+  /* Spacing */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-8:  32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+
+  /* Typography */
+  --font:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   16px;
+  --text-lg:   18px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  30px;
+  --text-4xl:  38px;
+  --text-5xl:  48px;
+
+  /* Transitions */
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:    cubic-bezier(0, 0, 0.2, 1);
+  --ease-in:     cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:    100ms;
+  --dur-base:    150ms;
+  --dur-slow:    250ms;
+  --dur-slower:  400ms;
+
+  /* Layout */
+  --sidebar-width:           240px;
+  --sidebar-collapsed-width: 64px;
+  --header-height:           64px;
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — GLOBAL BASE STYLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In frontend/src/index.css (or main.css), add @import './styles/tokens.css'; as the very first line, then append:
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--brand-900);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--r-sm);
+}
+
+img, svg { display: block; }
+button { font-family: var(--font); cursor: pointer; }
+input, textarea, select { font-family: var(--font); }
+a { color: var(--text-brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--r-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* Keyframes used by CSS-only animations */
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes bounceDot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%           { transform: translateY(-6px); }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-muted) 25%, var(--border-default) 50%, var(--surface-muted) 75%);
+  background-size: 400% auto;
+  animation: shimmer 1.6s var(--ease) infinite;
+  border-radius: var(--r-sm);
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — ANIME.JS ANIMATION UTILITIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create file: frontend/src/utils/animations.js
+
+Paste this entire file:
+
+import anime from 'animejs/lib/anime.es.js';
+
+/**
+ * Fade + slide up a single element or selector on mount.
+ * Usage: pageEnter('.page-root')
+ */
+export function pageEnter(target) {
+  anime({
+    targets: target,
+    opacity: [0, 1],
+    translateY: [10, 0],
+    duration: 320,
+    easing: 'easeOutQuad',
+  });
+}
+
+/**
+ * Stagger-animate a list of children into view.
+ * Usage: staggerIn('.lead-card')
+ */
+export function staggerIn(targets, delay = 0) {
+  anime({
+    targets,
+    opacity: [0, 1],
+    translateY: [16, 0],
+    delay: anime.stagger(60, { start: delay }),
+    duration: 280,
+    easing: 'easeOutQuad',
+  });
+}
+
+/**
+ * Animate a number counting up from 0 to `endValue`.
+ * Writes the value into `obj.value` and calls `onUpdate(obj.value)` each frame.
+ * Usage: countUp(0, 87, v => setDisplayScore(Math.round(v)))
+ */
+export function countUp(startValue = 0, endValue = 100, onUpdate, duration = 900) {
+  const obj = { value: startValue };
+  anime({
+    targets: obj,
+    value: endValue,
+    duration,
+    easing: 'easeOutCubic',
+    update() {
+      onUpdate(Math.round(obj.value));
+    },
+  });
+}
+
+/**
+ * Animate a progress bar fill from 0 to `percent`.
+ * Pass a ref to the fill element.
+ * Usage: animateBar(fillRef.current, 72)
+ */
+export function animateBar(fillEl, percent, duration = 700) {
+  if (!fillEl) return;
+  anime({
+    targets: fillEl,
+    width: [`0%`, `${percent}%`],
+    duration,
+    easing: 'easeOutQuart',
+  });
+}
+
+/**
+ * Shake an element (for validation errors).
+ * Usage: shakeEl(inputRef.current)
+ */
+export function shakeEl(el) {
+  if (!el) return;
+  anime({
+    targets: el,
+    translateX: [0, -8, 8, -6, 6, -3, 3, 0],
+    duration: 420,
+    easing: 'easeInOutSine',
+  });
+}
+
+/**
+ * Pop scale animation (for badge updates, toasts, etc.).
+ * Usage: popIn(badgeRef.current)
+ */
+export function popIn(el) {
+  if (!el) return;
+  anime({
+    targets: el,
+    scale: [0.7, 1.12, 1],
+    opacity: [0, 1],
+    duration: 360,
+    easing: 'easeOutBack',
+  });
+}
+
+/**
+ * Animate sidebar open (translateX from -240 to 0).
+ * Usage: openSidebar(sidebarRef.current)
+ */
+export function openSidebar(el) {
+  if (!el) return;
+  anime({ targets: el, translateX: [-240, 0], duration: 280, easing: 'easeOutQuart' });
+}
+
+/**
+ * Animate sidebar close (translateX from 0 to -240).
+ * Usage: closeSidebar(sidebarRef.current)
+ */
+export function closeSidebar(el) {
+  if (!el) return;
+  anime({ targets: el, translateX: [0, -240], duration: 240, easing: 'easeInQuart' });
+}
+
+/**
+ * Animate a modal appearing (scale from 0.94 + fade in).
+ * Usage: modalIn(modalRef.current)
+ */
+export function modalIn(el) {
+  if (!el) return;
+  anime({
+    targets: el,
+    opacity: [0, 1],
+    scale: [0.94, 1],
+    duration: 220,
+    easing: 'easeOutBack',
+  });
+}
+
+/**
+ * Animate hero section content on landing page load.
+ * Targets are the children of the hero wrapper.
+ */
+export function heroEnter(containerEl) {
+  if (!containerEl) return;
+  const children = containerEl.querySelectorAll('[data-hero-item]');
+  anime({
+    targets: children,
+    opacity: [0, 1],
+    translateY: [24, 0],
+    delay: anime.stagger(90),
+    duration: 480,
+    easing: 'easeOutExpo',
+  });
+}
+
+/**
+ * Animate a score ring border pulsing in (used on lead detail mount).
+ */
+export function scoreRingPulse(el) {
+  if (!el) return;
+  anime({
+    targets: el,
+    scale: [0.85, 1],
+    opacity: [0, 1],
+    duration: 500,
+    easing: 'easeOutBack',
+  });
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — COMPONENT LIBRARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create the folder: frontend/src/components/ui/
+Build each file below independently.
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/Button.jsx
+──────────────────────────────────────────────
+
+import React, { useRef } from 'react';
+import anime from 'animejs/lib/anime.es.js';
+
+const variantStyles = {
+  primary:   { background: 'var(--brand-800)',  color: 'var(--text-inverse)',   border: '1px solid var(--brand-800)' },
+  secondary: { background: 'transparent',        color: 'var(--brand-700)',      border: '1px solid var(--border-default)' },
+  ghost:     { background: 'transparent',        color: 'var(--text-secondary)', border: '1px solid transparent' },
+  danger:    { background: '#fee2e2',            color: '#991b1b',               border: '1px solid #fecaca' },
+  success:   { background: 'var(--green-100)',   color: 'var(--green-800)',      border: '1px solid var(--green-100)' },
+  outline:   { background: 'transparent',        color: 'var(--brand-700)',      border: '1px solid var(--brand-600)' },
+};
+
+const sizeStyles = {
+  sm: { padding: '6px 12px',  fontSize: 'var(--text-sm)',   height: '32px', gap: '6px' },
+  md: { padding: '9px 18px',  fontSize: 'var(--text-sm)',   height: '38px', gap: '7px' },
+  lg: { padding: '12px 24px', fontSize: 'var(--text-base)', height: '46px', gap: '8px' },
+};
+
+export default function Button({
+  children, variant = 'primary', size = 'md',
+  loading = false, disabled = false, icon: Icon, iconRight: IconRight,
+  onClick, style = {}, ...props
+}) {
+  const ref = useRef(null);
+
+  const handleClick = (e) => {
+    // Anime.js click ripple
+    anime({ targets: ref.current, scale: [1, 0.96, 1], duration: 200, easing: 'easeOutQuad' });
+    if (!disabled && !loading && onClick) onClick(e);
+  };
+
+  const base = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    fontFamily: 'var(--font)', fontWeight: 500, whiteSpace: 'nowrap',
+    cursor: disabled || loading ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+    borderRadius: 'var(--r-md)',
+    transition: 'background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease)',
+    userSelect: 'none',
+    ...sizeStyles[size],
+    ...variantStyles[variant],
+    ...style,
+  };
+
+  return (
+    <button ref={ref} style={base} onClick={handleClick} disabled={disabled || loading} {...props}>
+      {loading ? (
+        <span style={{
+          width: 14, height: 14, borderRadius: '50%',
+          border: '2px solid currentColor', borderTopColor: 'transparent',
+          animation: 'spin 0.6s linear infinite', display: 'inline-block',
+          marginRight: children ? 7 : 0,
+        }} />
+      ) : Icon ? <Icon size={15} /> : null}
+      {children}
+      {!loading && IconRight ? <IconRight size={14} style={{ marginLeft: 4 }} /> : null}
+    </button>
+  );
+}
+
+/* Add to index.css: @keyframes spin { to { transform: rotate(360deg); } } */
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/Badge.jsx
+──────────────────────────────────────────────
+
+import React, { useEffect, useRef } from 'react';
+import { popIn } from '../../utils/animations';
+
+const config = {
+  hot:     { fill: 'var(--hot-fill)',    text: 'var(--hot-text)',    border: 'var(--hot-border)',  dot: 'var(--hot-dot)' },
+  warm:    { fill: 'var(--warm-fill)',   text: 'var(--warm-text)',   border: 'var(--warm-border)', dot: 'var(--warm-dot)' },
+  cold:    { fill: 'var(--cold-fill)',   text: 'var(--cold-text)',   border: 'var(--cold-border)', dot: 'var(--cold-dot)' },
+  premium: { fill: '#fef3c7',            text: '#92400e',            border: '#fde68a',            dot: '#d97706' },
+  pro:     { fill: 'var(--brand-50)',    text: 'var(--brand-700)',   border: 'var(--brand-100)',   dot: 'var(--brand-500)' },
+  basic:   { fill: 'var(--surface-muted)', text: 'var(--text-secondary)', border: 'var(--border-default)', dot: 'var(--text-tertiary)' },
+  success: { fill: '#dcfce7', text: '#15803d', border: '#86efac', dot: '#16a34a' },
+  warning: { fill: '#fef9c3', text: '#92400e', border: '#fde047', dot: '#d97706' },
+  danger:  { fill: '#fee2e2', text: '#991b1b', border: '#fecaca', dot: '#dc2626' },
+  info:    { fill: 'var(--brand-50)', text: 'var(--brand-700)', border: 'var(--brand-100)', dot: 'var(--brand-500)' },
+  neutral: { fill: 'var(--surface-muted)', text: 'var(--text-secondary)', border: 'var(--border-default)', dot: '#9ca3af' },
+};
+
+export default function Badge({ variant = 'neutral', size = 'sm', showDot = false, children, animate = false }) {
+  const ref = useRef(null);
+  const c = config[variant] || config.neutral;
+  const padding = size === 'sm' ? '2px 8px' : '4px 10px';
+  const fontSize = size === 'sm' ? 'var(--text-xs)' : 'var(--text-sm)';
+
+  useEffect(() => { if (animate && ref.current) popIn(ref.current); }, [animate]);
+
+  return (
+    <span ref={ref} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding, borderRadius: 'var(--r-full)', fontSize, fontWeight: 500,
+      background: c.fill, color: c.text, border: `1px solid ${c.border}`,
+    }}>
+      {showDot && (
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.dot, flexShrink: 0 }} />
+      )}
+      {children}
+    </span>
+  );
+}
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/Card.jsx
+──────────────────────────────────────────────
+
+import React from 'react';
+import anime from 'animejs/lib/anime.es.js';
+
+const variantBase = {
+  default:     { background: 'var(--surface-base)',   border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)' },
+  elevated:    { background: 'var(--surface-base)',   border: '1px solid transparent',           boxShadow: 'var(--shadow-md)' },
+  flat:        { background: 'var(--surface-subtle)', border: '1px solid var(--border-subtle)',   boxShadow: 'none' },
+  interactive: { background: 'var(--surface-base)',   border: '1px solid var(--border-default)', boxShadow: 'var(--shadow-sm)', cursor: 'pointer' },
+};
+
+const padMap = { sm: 16, md: 24, lg: 32 };
+
+export default function Card({ variant = 'default', padding = 'md', noPadding = false, children, onClick, style = {}, ...props }) {
+  const isInteractive = variant === 'interactive' || !!onClick;
+
+  const handleMouseEnter = (e) => {
+    if (!isInteractive) return;
+    anime({ targets: e.currentTarget, translateY: -2, boxShadow: '0 8px 20px rgba(0,0,0,0.08)', duration: 180, easing: 'easeOutQuad' });
+  };
+  const handleMouseLeave = (e) => {
+    if (!isInteractive) return;
+    anime({ targets: e.currentTarget, translateY: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', duration: 180, easing: 'easeOutQuad' });
+  };
+
+  return (
+    <div
+      style={{
+        borderRadius: 'var(--r-lg)',
+        padding: noPadding ? 0 : padMap[padding],
+        transition: 'border-color var(--dur-base) var(--ease)',
+        ...variantBase[variant],
+        ...style,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/Input.jsx
+──────────────────────────────────────────────
+
+import React, { useRef, useState } from 'react';
+import { AlertCircle } from 'lucide-react';
+
+export default function Input({
+  label, error, hint, icon: Icon, iconRight: IconRight,
+  size = 'md', type = 'text', style = {}, ...props
+}) {
+  const [focused, setFocused] = useState(false);
+  const padMap = { sm: '8px 12px', md: '10px 14px', lg: '12px 16px' };
+  const fontMap = { sm: 'var(--text-sm)', md: 'var(--text-sm)', lg: 'var(--text-base)' };
+  const padLeftMap = { sm: 36, md: 40, lg: 44 };
+
+  const inputStyle = {
+    width: '100%',
+    padding: padMap[size],
+    paddingLeft: Icon ? padLeftMap[size] : undefined,
+    border: `1px solid ${error ? '#ef4444' : focused ? 'var(--border-focus)' : 'var(--border-default)'}`,
+    borderRadius: 'var(--r-md)',
+    fontSize: fontMap[size],
+    color: 'var(--text-primary)',
+    background: 'var(--surface-base)',
+    outline: 'none',
+    boxShadow: error ? 'var(--shadow-focus-danger)' : focused ? 'var(--shadow-focus)' : 'none',
+    transition: 'border var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease)',
+    fontFamily: 'var(--font)',
+    ...style,
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+      {label && (
+        <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 'var(--sp-2)', display: 'block' }}>
+          {label}
+        </label>
+      )}
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        {Icon && (
+          <Icon size={15} style={{
+            position: 'absolute', left: 12,
+            color: focused ? 'var(--brand-500)' : 'var(--text-tertiary)',
+            transition: 'color var(--dur-fast)',
+            pointerEvents: 'none',
+          }} />
+        )}
+        <input
+          type={type}
+          style={inputStyle}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          {...props}
+        />
+        {IconRight && <div style={{ position: 'absolute', right: 12 }}>{IconRight}</div>}
+      </div>
+      {error && (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-danger)', marginTop: 'var(--sp-1)', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <AlertCircle size={12} /> {error}
+        </span>
+      )}
+      {hint && !error && (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)', marginTop: 'var(--sp-1)' }}>{hint}</span>
+      )}
+    </div>
+  );
+}
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/ScoreRing.jsx
+──────────────────────────────────────────────
+
+import React, { useEffect, useRef, useState } from 'react';
+import { countUp, scoreRingPulse } from '../../utils/animations';
+
+const sizes = { sm: 36, md: 56, lg: 72 };
+const fonts = { sm: '13px', md: '18px', lg: '24px' };
+
+function getCategory(score) {
+  if (score >= 70) return { border: '#16a34a', fill: '#dcfce7', text: '#15803d' };
+  if (score >= 40) return { border: '#d97706', fill: '#fef9c3', text: '#92400e' };
+  return { border: '#9ca3af', fill: '#f3f4f6', text: '#4b5563' };
+}
+
+export default function ScoreRing({ score = 0, size = 'md', animated = true }) {
+  const [display, setDisplay] = useState(animated ? 0 : score);
+  const ref = useRef(null);
+  const cat = getCategory(display);
+  const px = sizes[size];
+
+  useEffect(() => {
+    if (animated) {
+      countUp(0, score, setDisplay, 900);
+      scoreRingPulse(ref.current);
+    }
+  }, [score, animated]);
+
+  return (
+    <div ref={ref} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div style={{
+        width: px, height: px, borderRadius: '50%',
+        border: `2.5px solid ${cat.border}`,
+        background: cat.fill,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'background 400ms, border-color 400ms',
+      }}>
+        <span style={{ fontSize: fonts[size], fontWeight: 700, color: cat.text, lineHeight: 1 }}>
+          {display}
+        </span>
+      </div>
+      {size !== 'sm' && (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-tertiary)' }}>score</span>
+      )}
+    </div>
+  );
+}
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/ProgressBar.jsx
+──────────────────────────────────────────────
+
+import React, { useEffect, useRef } from 'react';
+import { animateBar } from '../../utils/animations';
+
+const trackHeights = { sm: 4, md: 8, lg: 12 };
+
+function getFill(value) {
+  if (value < 70) return 'linear-gradient(90deg, #16a34a, #22c55e)';
+  if (value < 90) return 'linear-gradient(90deg, #d97706, #f59e0b)';
+  return 'linear-gradient(90deg, #dc2626, #ef4444)';
+}
+
+export default function ProgressBar({ value = 0, size = 'md', showLabel = false, animated = true }) {
+  const fillRef = useRef(null);
+  const h = trackHeights[size];
+
+  useEffect(() => {
+    if (animated) animateBar(fillRef.current, value);
+    else if (fillRef.current) fillRef.current.style.width = `${value}%`;
+  }, [value, animated]);
+
+  return (
+    <div>
+      {showLabel && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+          <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{value}%</span>
+        </div>
+      )}
+      <div style={{ background: 'var(--surface-muted)', borderRadius: 'var(--r-full)', height: h, overflow: 'hidden' }}>
+        <div ref={fillRef} style={{
+          height: '100%', width: 0, background: getFill(value),
+          borderRadius: 'var(--r-full)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+──────────────────────────────────────────────
+FILE: frontend/src/components/ui/Modal.jsx
+──────────────────────────────────────────────
+
+import React, { useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
+import { modalIn } from '../../utils/animations';
+import anime from 'animejs/lib/anime.es.js';
+
+const widths = { sm: 420, md: 560, lg: 720, xl: 900 };
+
+export default function Modal({ open, onClose, title, size = 'md', children, footer }) {
+  const panelRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  useEffect(() => {
+    if (open) {
+      modalIn(panelRef.current);
+      anime({ targets: overlayRef.current, opacity: [0, 1], duration: 180, easing: 'easeOutQuad' });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    if (open) document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div ref={overlayRef} onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'var(--surface-overlay)',
+      backdropFilter: 'blur(4px)', zIndex: 50,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+    }}>
+      <div ref={panelRef} onClick={e => e.stopPropagation()} style={{
+        background: 'var(--surface-base)', borderRadius: 'var(--r-xl)',
+        boxShadow: 'var(--shadow-xl)',
+        width: widths[size], maxWidth: 'calc(100vw - 32px)',
+        maxHeight: 'calc(100vh - 64px)', overflowY: 'auto',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-lg)', fontWeight: 600 }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-secondary)', borderRadius: 'var(--r-sm)' }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ padding: 24, flex: 1 }}>{children}</div>
+        {footer && (
+          <div style={{ padding: '16px 24px 20px', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'flex-end', gap: 'var(--sp-3)' }}>
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — TOAST SYSTEM
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In frontend/src/main.jsx, add the Toaster from react-hot-toast:
+
+import { Toaster } from 'react-hot-toast';
+
+// Inside the JSX tree wrapping your app:
+<Toaster
+  position="top-right"
+  toastOptions={{
+    duration: 3500,
+    style: {
+      fontFamily: 'var(--font)',
+      fontSize: 'var(--text-sm)',
+      borderRadius: 'var(--r-md)',
+      border: '1px solid var(--border-default)',
+      boxShadow: 'var(--shadow-lg)',
+      color: 'var(--text-primary)',
+      background: 'var(--surface-base)',
+      padding: '12px 16px',
+      maxWidth: '360px',
+    },
+    success: { iconTheme: { primary: 'var(--hot-dot)', secondary: 'white' } },
+    error:   { iconTheme: { primary: '#dc2626',        secondary: 'white' } },
+  }}
+/>
+
+Replace every alert(), window.confirm(), and user-visible console.error() with toast.success() / toast.error() from react-hot-toast.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — SIDEBAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Rebuild frontend/src/components/layout/Sidebar.jsx from scratch. Preserve all existing NavLink paths and auth logic — only replace visual markup and styles.
+
+Key structure and styles:
+
+OUTER CONTAINER:
+- position: fixed; left: 0; top: 0; height: 100vh; width: var(--sidebar-width)
+- background: var(--surface-base)
+- borderRight: 1px solid var(--border-subtle)
+- display: flex; flexDirection: column
+- zIndex: 40
+- On mobile (< 768px): translateX(-100%) when closed, translateX(0) when open
+- Use openSidebar / closeSidebar from utils/animations.js for the toggle animation
+
+LOGO AREA (height 64px, padding 0 20px, borderBottom 1px solid var(--border-subtle)):
+- Left: 28x28px square, background var(--brand-800), color white, fontWeight 700, fontSize 14px, borderRadius var(--r-sm), text 'E'
+- Right of square: 'EduLeads' 15px/700 var(--brand-900), 'Kerala' 11px/400 var(--text-tertiary)
+
+NAV SECTION LABEL style:
+  fontSize var(--text-xs), fontWeight 600, color var(--text-tertiary),
+  textTransform uppercase, letterSpacing 0.08em, padding 20px 16px 6px
+
+NAV ITEM style:
+  padding 9px 12px, margin 1px 8px, borderRadius var(--r-md),
+  display flex, alignItems center, gap 10px,
+  fontSize var(--text-sm), fontWeight 500, cursor pointer,
+  transition all var(--dur-fast) var(--ease)
+
+  DEFAULT:   color var(--text-secondary), background transparent
+  HOVER:     color var(--text-primary), background var(--surface-muted)
+  ACTIVE:    color var(--brand-800), background var(--brand-50), fontWeight 600
+             Also add a ::before-equivalent left accent bar:
+             Use a 3x60% absolute div, background var(--brand-800), left: -8px, borderRadius 0 2px 2px 0
+
+On mount, stagger-animate nav items using staggerIn('.nav-item') from utils/animations.js
+
+UNREAD BADGE (Messages item): height 18px, minWidth 18px, background var(--brand-800), color white, fontSize 11px, fontWeight 600, borderRadius var(--r-full), marginLeft auto. Show '9+' when count > 9.
+
+USER CARD (pinned bottom, borderTop 1px solid var(--border-subtle), padding 12px 16px):
+- Avatar: 34px circle, background var(--brand-100), color var(--brand-800), fontSize var(--text-sm), fontWeight 600 — shows initials
+- Name: var(--text-sm) 500 var(--text-primary) truncated, Role: var(--text-xs) var(--text-tertiary)
+- Plan Badge: use Badge component
+- LogOut button: ghost icon-only, LogOut icon 16px var(--text-tertiary), hover color var(--text-danger)
+
+MOBILE HAMBURGER:
+- position fixed, top 10px, left 12px, zIndex 50
+- 44x44px, background var(--surface-base), border 1px solid var(--border-default)
+- borderRadius var(--r-md), boxShadow var(--shadow-sm), Menu icon 20px
+- visible only < 768px
+- onClick: call openSidebar(sidebarRef.current) / closeSidebar(sidebarRef.current)
+
+MOBILE OVERLAY:
+- Fixed inset-0, background var(--surface-overlay), backdropFilter blur(2px)
+- zIndex 39, visible only when sidebar is open on mobile
+- Anime.js fade in/out: opacity [0,1] duration 200ms
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — HEADER BAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Rebuild frontend/src/components/layout/Header.jsx. Preserve page title logic.
+
+CONTAINER:
+  position fixed, top 0, left var(--sidebar-width), right 0
+  height var(--header-height), zIndex 30
+  background rgba(255,255,255,0.92), backdropFilter blur(12px)
+  borderBottom 1px solid var(--border-subtle)
+  padding 0 24px
+  display flex, alignItems center, justifyContent space-between
+  On mobile: left 0, paddingLeft 64px
+
+LEFT: Page title var(--text-lg) 600 var(--text-primary)
+
+RIGHT (gap 8px):
+1. Bell icon button (ghost 36x36px), red 8px dot badge when unread > 0
+2. Divider 1px var(--border-default) height 20px
+3. User pill: avatar 30px + name (hidden mobile) + ChevronDown 14px
+   Hover: background var(--surface-muted), borderRadius var(--r-md), padding 4px 8px
+
+Notification dropdown (width 340px, position absolute top calc(100% + 8px) right 0):
+  background var(--surface-base), border 1px solid var(--border-default)
+  borderRadius var(--r-lg), boxShadow var(--shadow-xl), maxHeight 420px overflowY auto
+  Animate open with anime: opacity [0,1] + translateY [4px,0] duration 180ms easing easeOutQuad
+
+Each notification item:
+  padding 12px 16px, borderBottom 1px solid var(--border-subtle), display flex gap 12px
+  Unread: background var(--brand-50), borderLeft 2px solid var(--brand-500)
+  Icon circle 36px, title var(--text-sm) 500, desc var(--text-xs) var(--text-secondary), time var(--text-xs) var(--text-tertiary)
+  Hover: background var(--surface-muted), cursor pointer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — APP LAYOUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Rebuild frontend/src/components/layout/AppLayout.jsx. Preserve Outlet and routing.
+
+useEffect on mount: call pageEnter('.app-page') from utils/animations.js
+
+Structure:
+<div style={{ display: 'flex', minHeight: '100vh' }}>
+  <Sidebar />
+  <div style={{ flex: 1, marginLeft: 'var(--sidebar-width)', display: 'flex', flexDirection: 'column' }}>
+    <Header />
+    <main style={{ marginTop: 'var(--header-height)', padding: 24, minHeight: 'calc(100vh - var(--header-height))' }}>
+      <div className="app-page" style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <Outlet />
+      </div>
+    </main>
+  </div>
+</div>
+
+Mobile: marginLeft 0 on content div.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9 — LOGIN PAGE (CRITICAL — REBUILD COMPLETELY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Rebuild frontend/src/pages/Login.jsx (or AuthPage.jsx — whichever file handles login). Preserve all existing form submission, API call, and navigation logic exactly. Only replace the JSX markup and styles.
+
+The login page must NOT use AppLayout, Sidebar, or Header. It is a standalone full-page component.
+
+OUTER WRAPPER:
+  display: flex, minHeight: '100vh', fontFamily: 'var(--font)'
+
+LEFT PANEL (flex: 0 0 55% on desktop, display:none on mobile < 768px):
+  background: linear-gradient(160deg, var(--brand-900) 0%, var(--brand-800) 60%, var(--green-800) 100%)
+  padding: 64px 56px
+  display: flex, flexDirection: column, justifyContent: space-between
+  position: relative, overflow: hidden
+
+  // Decorative background circles (pure CSS, no images needed):
+  Add two absolutely-positioned divs:
+    Circle 1: width 300px, height 300px, borderRadius 50%,
+              background rgba(255,255,255,0.03), top: -60px, right: -80px
+    Circle 2: width 200px, height 200px, borderRadius 50%,
+              background rgba(56,160,87,0.12), bottom: 80px, left: -60px
+
+  TOP — Logo (white version):
+    display flex, alignItems center, gap 10px
+    Square: 32x32px, background rgba(255,255,255,0.15), color white,
+            fontWeight 700, fontSize 16px, borderRadius var(--r-sm), text 'E'
+    Text: 'EduLeads' 16px/700 white, 'Kerala' 12px/400 rgba(255,255,255,0.55) below
+
+  MIDDLE — Hero content:
+    Overline: display flex, alignItems center, gap 8px, marginBottom 16px
+      Dot: 8px circle, background var(--green-100)
+      Text: 'TRUSTED BY 50+ KERALA COLLEGES'
+            fontSize 11px, fontWeight 600, color rgba(255,255,255,0.5),
+            textTransform uppercase, letterSpacing 0.1em
+
+    Headline: 'Find the right students for your college'
+      fontSize 36px, fontWeight 700, color white, lineHeight 1.25
+
+    Feature rows (marginTop 32px, display flex, flexDirection column, gap 14px):
+      Each row: display flex, alignItems flex-start, gap 12px
+        Icon: CheckCircle size 20, color var(--green-100), flexShrink 0, marginTop 2px
+        Text: fontSize 15px, fontWeight 400, color rgba(255,255,255,0.8), lineHeight 1.5
+      Rows:
+        'AI counsellor qualifies students in Malayalam'
+        'Phone numbers protected until you upgrade'
+        'Verified leads with scored intent data'
+
+  BOTTOM — Testimonial card:
+    background: rgba(255,255,255,0.08)
+    border: 1px solid rgba(255,255,255,0.12)
+    borderRadius: var(--r-lg), padding 20px
+    Quote text: fontSize 14px, fontStyle italic, color rgba(255,255,255,0.85), lineHeight 1.6
+    Text: '"We filled 40 seats in one admission season."'
+    Author: fontSize 12px, fontWeight 500, color rgba(255,255,255,0.55), marginTop 12px
+    Author text: '— Principal, MES College, Ernakulam'
+
+  Animate left panel on mount using heroEnter(leftPanelRef.current):
+    All direct children should have data-hero-item attribute.
+
+RIGHT PANEL (flex: 0 0 45% on desktop, flex: 1 / width 100% on mobile):
+  background: var(--surface-base)
+  display: flex, alignItems: center, justifyContent: center
+  padding: 40px 24px (mobile) / 0 (desktop, inner container handles padding)
+
+  INNER FORM CONTAINER:
+    maxWidth 400px, width 100%
+    padding: 48px 40px (desktop), 32px 24px (mobile)
+
+    // Animate form container in on mount:
+    useEffect → anime({ targets: formRef.current, opacity: [0,1], translateY: [20,0], duration: 480, easing: 'easeOutExpo', delay: 100 })
+
+    LOGO (mobile only, hidden on desktop):
+      Same as sidebar logo but brand colours, marginBottom 32px
+
+    HEADING:
+      'Welcome back'
+      fontSize var(--text-3xl), fontWeight 700, color var(--text-primary)
+
+    SUBHEADING:
+      'Sign in to your EduLeads account'
+      fontSize var(--text-sm), color var(--text-secondary), marginTop 8px
+
+    FORM (marginTop 32px, display flex, flexDirection column, gap 20px):
+      Use the Input component from Step 4 for all fields.
+
+      Email field:
+        label='Email address', type='email', icon=Mail (from lucide-react)
+        placeholder='you@college.edu'
+
+      Password field:
+        label='Password', type=controlled (show/hide toggle)
+        icon=Lock (from lucide-react)
+        iconRight = Eye / EyeOff button (toggles password visibility)
+        The Eye/EyeOff button: background none, border none, cursor pointer,
+        color var(--text-tertiary), hover color var(--text-primary)
+
+      Remember me + Forgot password row:
+        display flex, justifyContent space-between, alignItems center
+        Left: checkbox input + label 'Remember me' var(--text-sm) var(--text-secondary)
+        Right: 'Forgot password?' link var(--text-sm) var(--text-brand)
+
+      Sign In button:
+        Use Button component: variant='primary', size='lg', full width (width 100%)
+        loading state: show spinner + text 'Signing in...'
+        On click: run anime shake on form if error → shakeEl(formRef.current)
+
+      Divider:
+        marginTop 24px, marginBottom 24px
+        display flex, alignItems center, gap 12px
+        Left/right lines: flex 1, height 1px, background var(--border-default)
+        Center text: 'New to EduLeads?' var(--text-sm) var(--text-tertiary), whiteSpace nowrap, padding 0 8px
+
+      Register / Create account button:
+        Use Button component: variant='secondary', size='lg', full width (width 100%)
+        Text: 'Create an account'
+
+IMPORTANT MOBILE BEHAVIOUR:
+  On screens < 768px:
+    - Left panel: display none (hidden completely)
+    - Right panel: width 100%, padding 32px 24px
+    - Show the logo mark at top of right panel (visible only on mobile)
+    - Form inner container: maxWidth 100%, padding 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10 — DASHBOARD PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Rebuild the dashboard overview page visuals. Keep all data fetching and state logic unchanged.
+
+On mount:
+  staggerIn('.metric-card')   ← animate metric cards in
+  All metric value numbers: use countUp() from utils/animations.js
+
+GREETING ROW:
+  'Good [morning/afternoon/evening], [First Name] 👋'
+  fontSize var(--text-2xl), fontWeight 700, color var(--text-primary)
+  Date below: fontSize var(--text-sm), color var(--text-tertiary), marginTop 4px
+
+QUOTA WARNING BANNER (show only when quota_used/quota_monthly >= 0.8):
+  marginTop 16px
+  background: linear-gradient(90deg, #fffbeb, #fef9c3)
+  border: 1px solid #fde68a, borderLeft: 4px solid #d97706
+  borderRadius: var(--r-md), padding: 12px 16px
+  display flex, alignItems center, gap 12px
+  AlertTriangle icon 18px amber + warning text var(--text-sm) + Upgrade Button sm on right
+
+METRIC CARDS ROW:
+  CSS Grid: repeat(4, 1fr), gap 16px
+  Tablet: repeat(2, 1fr), Mobile: repeat(2, 1fr)
+  Each card className="metric-card"
+
+  Each metric card:
+    background var(--surface-base), border 1px solid var(--border-default)
+    borderRadius var(--r-lg), padding 20px, position relative, overflow hidden
+
+    Top row: label var(--text-sm) var(--text-secondary) + icon circle right
+      Icon circle: 36px, borderRadius 50%, coloured background + coloured icon
+    Value: fontSize var(--text-3xl), fontWeight 700, marginTop 12px
+      → animated count-up using countUp() from utils
+    Trend: marginTop 6px, fontSize var(--text-xs)
+      Up: TrendingUp 12px green text green
+      Down: TrendingDown 12px red text red
+
+    Decorative blob: position absolute, bottom -20px, right -20px,
+      width 80px, height 80px, borderRadius 50%, opacity 0.06,
+      background matches icon circle bg colour
+
+LEAD TREND CHART:
+  Card with 'Lead activity' heading + '30 days' Badge top-right
+  AreaChart height 200px using Recharts
+  Area: fill var(--brand-100), stroke var(--brand-600), strokeWidth 2, type='monotone'
+  No grid lines — only bottom Axis (XAxis only)
+  Custom Tooltip: white card, borderRadius var(--r-md), boxShadow var(--shadow-md)
+  Responsive: width='100%'
+  ActiveDot: size 4, fill var(--brand-800), strokeWidth 0
+
+RECENT LEADS TABLE:
+  Card with 'Recent leads' heading + 'View all →' link top-right
+  Use Table component below, last 5 leads
+  Compact padding: 10px 16px per row
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 11 — TABLE COMPONENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Create frontend/src/components/ui/Table.jsx
+
+Props: columns, data, loading, emptyState, onRowClick, striped, compact
+
+CONTAINER:
+  border 1px solid var(--border-default), borderRadius var(--r-lg)
+  overflow hidden, background var(--surface-base), boxShadow var(--shadow-xs)
+
+THEAD:
+  background var(--surface-subtle), borderBottom 1px solid var(--border-default)
+  th: padding 11px 16px (or 8px 16px if compact), fontSize var(--text-xs),
+      fontWeight 600, color var(--text-tertiary), textTransform uppercase,
+      letterSpacing 0.06em, whiteSpace nowrap
+
+TBODY:
+  td: padding 14px 16px (or 10px 16px if compact), fontSize var(--text-sm),
+      borderBottom 1px solid var(--border-subtle), verticalAlign middle
+  Last row: no borderBottom
+  Hover (when onRowClick): background var(--brand-50), cursor pointer
+  Transition: background var(--dur-fast) var(--ease)
+  Striped (odd rows): background var(--surface-subtle)
+
+On mount: staggerIn('tbody tr') using staggerIn from utils/animations.js
+
+LOADING STATE:
+  5 skeleton rows. Each td contains a .skeleton div
+  height 16px, width varies: name=140px, short=60px, medium=100px
+
+EMPTY STATE (shown when data.length === 0 and not loading):
+  Full-width td, padding 60px 20px, textAlign center
+  Icon: 40px wrapped in 72px circle background var(--surface-muted)
+  Title: var(--text-base) 600 var(--text-primary), marginTop 12px
+  Desc: var(--text-sm) var(--text-secondary), maxWidth 300px, margin 6px auto 0
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 12 — LEADS LIST PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Keep all filtering, fetching, and state logic. Replace visuals only.
+
+FILTER BAR (Card flat variant, padding 16px 20px):
+  display flex, flexWrap wrap, gap 12px, alignItems center
+
+  Search Input: width 260px, icon Search, placeholder 'Search name or course...'
+
+  Category pills (All / Hot / Warm / Cold):
+    display inlineFlex, gap 6px
+    Each pill: padding 6px 14px, borderRadius var(--r-full), fontSize var(--text-sm)
+    fontWeight 500, cursor pointer, border 1px solid, transition all var(--dur-base)
+    INACTIVE: border var(--border-default), bg transparent, color var(--text-secondary)
+    ACTIVE All:  bg var(--brand-800), border var(--brand-800), color white
+    ACTIVE Hot:  bg var(--hot-fill),  border var(--hot-border),  color var(--hot-text)
+    ACTIVE Warm: bg var(--warm-fill), border var(--warm-border), color var(--warm-text)
+    ACTIVE Cold: bg var(--cold-fill), border var(--cold-border), color var(--cold-text)
+    Clicking a pill: animate with anime scale [1, 0.94, 1] duration 150ms
+
+  Status select (width 160px), Location select (width 180px)
+  Clear filters button: only when filters active, var(--text-sm) var(--text-brand) + X icon
+
+TABLE COLUMNS:
+  1. Student: 36px avatar circle (initials, bg var(--brand-100), color var(--brand-800)) + name var(--text-sm) 500 + course var(--text-xs) var(--text-secondary)
+  2. Location: MapPin icon 12px var(--text-tertiary) + text
+  3. Score: ScoreRing size='sm'
+  4. Category: Badge component (hot/warm/cold)
+  5. Status: Badge component (new=info, contacted=neutral, qualified=warning, enrolled=success, lost=danger)
+  6. Received: relative time text, title attribute shows exact date
+  7. Actions: three ghost icon buttons — Eye, MessageSquare, Phone
+     Phone locked for non-premium: show Lock icon, pointer-events none, opacity 0.4, title tooltip
+
+MOBILE (< 768px): render each lead as Card interactive instead of table row.
+  Top row: avatar + name + category Badge
+  Second row: course · location (var(--text-sm) var(--text-secondary))
+  Third row: ScoreRing sm + status Badge + relative time var(--text-tertiary)
+  Tap whole card → lead detail
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 13 — LEAD DETAIL PAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Keep all API calls, WebSocket, and status-update logic. Replace layout and visuals only.
+
+On mount: pageEnter('.lead-detail-root')
+
+PAGE HEADER:
+  Breadcrumb: '← Back to Leads' (ChevronLeft + text, var(--text-sm) var(--text-brand))
+  Heading row: student name var(--text-2xl) 700 + badges below (category + source + status)
+  Score ring size='lg' floated right on desktop, below name on mobile
+  Last activity: Clock icon 12px + 'Last active X days ago' var(--text-xs) var(--text-tertiary)
+
+TWO-PANEL GRID: gridTemplateColumns '38% 62%', gap 24px
+  Mobile: single column (left panel first, right panel below)
+
+LEFT PANEL — Student info Card default:
+  Section heading 'STUDENT INFORMATION' (var(--text-xs) 600 uppercase var(--text-tertiary) tracking-wide, borderBottom, paddingBottom 12px, marginBottom 16px)
+
+  Each field:
+    label: var(--text-xs) 500 var(--text-tertiary) uppercase trackingWide, display block, marginBottom 4px
+    value: var(--text-sm) 500 var(--text-primary)
+    paddingBottom 14px, borderBottom 1px solid var(--border-subtle), marginBottom 14px
+    Last field: no border or margin
+
+  PHONE FIELD — LOCKED (basic/pro plan):
+    Blurred placeholder: 'XXXXXXXXXXX', filter blur(5px), userSelect none
+    Below: amber box:
+      background linear-gradient(135deg, #fffbeb, #fef3c7)
+      border 1px solid #fde68a, borderRadius var(--r-md), padding 12px
+      display flex, alignItems center, gap 8px
+      Lock icon 14px amber + 'Upgrade to Premium to reveal' var(--text-sm) + Button sm primary 'Upgrade'
+
+  PHONE FIELD — REVEALED (premium):
+    Phone number in font-mono, fontSize var(--text-sm)
+    Copy button (ghost sm, Copy icon): on click → copies to clipboard → shows '✓ Copied' for 2s
+      Animate the '✓ Copied' state with popIn() from utils/animations.js
+    'This action has been logged' var(--text-xs) var(--text-tertiary) below
+
+  STATUS UPDATE:
+    'Update Status' label var(--text-xs) 600 uppercase var(--text-tertiary)
+    Horizontal row of pills: new / contacted / qualified / enrolled / lost
+    Each pill: padding 6px 14px, borderRadius var(--r-full), border 1px solid, fontSize var(--text-sm)
+    INACTIVE: transparent bg, border var(--border-default), color var(--text-secondary)
+    ACTIVE new: bg var(--brand-50) border var(--brand-200) color var(--brand-700)
+    ACTIVE contacted: bg #f3e8ff border #d8b4fe color #6b21a8
+    ACTIVE qualified: bg var(--warm-fill) border var(--warm-border) color var(--warm-text)
+    ACTIVE enrolled: bg var(--green-50) border var(--green-100) color var(--green-800)
+    ACTIVE lost: bg #fee2e2 border #fecaca color #991b1b
+    On click: call existing PATCH API, show spinner on that pill while saving
+
+  PRIVATE NOTES:
+    'PRIVATE NOTES' label + Lock icon 12px (inline)
+    Textarea: minHeight 80px, autoExpand, full width
+    border 1px solid var(--border-default), borderRadius var(--r-md), padding 10px 14px
+    Auto-save with 1-second debounce (preserve existing save logic)
+    'Saved ✓' indicator: appears after save, animate with popIn(), fades out after 1.5s
+
+RIGHT PANEL — Chat Card noPadding:
+  HEADER (padding 16px 20px, borderBottom 1px solid var(--border-subtle)):
+    'Conversation' var(--text-sm) 600 left
+    Channel badge right (Badge neutral 'via WhatsApp' or 'via Phone')
+    WS dot far right: 8px circle, green=live gray=reconnecting, pulse animation (pulse-ring keyframe from CSS)
+
+  MESSAGES AREA:
+    padding 16px 20px, minHeight 400px, maxHeight 520px, overflowY auto
+    Subtle fade overlay at top/bottom: use gradient mask or pseudo elements
+      top: linear-gradient(to bottom, white, transparent) 24px
+      bottom: linear-gradient(to top, white, transparent) 24px
+      Both: position sticky/absolute, pointerEvents none
+
+  MESSAGE BUBBLES:
+    New bubbles: animate with anime opacity [0,1] translateY [4px,0] duration 200ms easing easeOutQuad
+
+    College (right-aligned):
+      marginLeft auto, maxWidth 75%
+      background var(--brand-800), color white
+      borderRadius 16px 16px 4px 16px, padding 10px 14px
+      fontSize var(--text-sm)
+      Timestamp: fontSize var(--text-xs), color rgba(255,255,255,0.6), textAlign right, marginTop 4px
+
+    Student (left-aligned):
+      marginRight auto, maxWidth 75%
+      background var(--surface-subtle), border 1px solid var(--border-default)
+      borderRadius 16px 16px 16px 4px, padding 10px 14px
+      fontSize var(--text-sm)
+      Timestamp: fontSize var(--text-xs), color var(--text-tertiary), marginTop 4px
+
+    Date separators: centered, var(--text-xs) var(--text-tertiary), lines either side using flex + 1px divs
+
+    Typing indicator (3 dots):
+      Student bubble containing 3 × 6px circles var(--brand-800) colour
+      Each dot: animation bounceDot staggered: 0ms / 150ms / 300ms
+
+  CHAT INPUT (padding 12px 16px, borderTop 1px solid var(--border-subtle)):
+    display flex, gap 10px
+    Textarea: flex 1, padding 10px 14px, border 1px solid var(--border-default)
+      borderRadius var(--r-xl), fontSize var(--text-sm), resize none
+      minHeight 42px, maxHeight 120px, auto-expand as user types
+      focus: border var(--border-focus) boxShadow var(--shadow-focus)
+    Send button: 42x42px circle, background var(--brand-800), display flex center
+      SendHorizontal icon 18px white
+      disabled: opacity 0.4, cursor not-allowed
+      hover: background var(--brand-700)
+      onClick: anime scale [1, 0.94, 1] duration 150ms
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 14 — CALL BUTTON STYLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add to index.css:
+
+.btn-call {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px;
+  background: var(--green-50); color: var(--green-800);
+  border: 1px solid var(--green-100); border-radius: var(--r-md);
+  font-size: var(--text-sm); font-weight: 500; cursor: pointer;
+  transition: all var(--dur-base) var(--ease);
+}
+.btn-call:hover {
+  background: var(--green-100); border-color: var(--green-600);
+  transform: translateY(-1px); box-shadow: var(--shadow-sm);
+}
+.call-status { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: var(--r-md); font-size: var(--text-sm); font-weight: 500; border: 1px solid; }
+.call-status.calling  { background: #eff6ff; border-color: #bfdbfe; color: var(--brand-700); }
+.call-status.connected { background: var(--green-50); border-color: var(--green-100); color: var(--green-800); }
+.pulse-ring { width: 10px; height: 10px; border-radius: 50%; background: var(--brand-500); position: relative; }
+.pulse-ring::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 2px solid var(--brand-500); animation: pulse-ring 1.2s var(--ease-out) infinite; }
+.pulse-ring.green { background: var(--hot-dot); }
+.pulse-ring.green::before { border-color: var(--hot-dot); }
+.call-disclaimer { font-size: var(--text-xs); color: var(--text-tertiary); display: flex; align-items: center; gap: 5px; }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 15 — FINAL CHECKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After applying all steps above, verify each of the following:
+
+1. MOBILE (375px viewport):
+   □ Sidebar hidden, hamburger visible at top-left
+   □ Login page shows only right panel (full width), left panel is display:none
+   □ All text readable, nothing overflows horizontally
+   □ Lead detail single column
+   □ Leads list shows cards instead of table
+
+2. DESKTOP (1440px viewport):
+   □ Sidebar 240px, fully visible
+   □ All cards aligned to grid
+   □ Content maxWidth 1280px respected
+   □ Lead detail two-column
+
+3. LOADING STATES:
+   □ All data containers show .skeleton divs while loading
+   □ No blank white flash on navigation
+   □ Buttons show spinner when submitting
+
+4. EMPTY STATES:
+   □ Every table shows empty state component
+   □ Empty chat shows centered message
+
+5. COLOUR CONSISTENCY:
+   □ No hardcoded hex colours remain in component files
+   □ All colours use CSS variables
+   □ Hot/warm/cold Badge consistent everywhere
+
+6. ANIMATIONS (Anime.js):
+   □ Login page: left panel children stagger in on load (heroEnter)
+   □ Login form panel: fades + slides up on load
+   □ Sidebar nav items: stagger in on mount (staggerIn)
+   □ Dashboard metric cards: stagger in + count-up numbers
+   □ ProgressBar fills animate from 0 on mount
+   □ ScoreRing counts up from 0 on mount
+   □ Lead cards in table: stagger in rows
+   □ New chat bubbles: fade + slide up
+   □ Modal: scale + fade on open
+   □ Mobile sidebar: slide in/out with anime translateX
+   □ Button clicks: micro-scale feedback
+   □ Pill/filter clicks: micro-scale feedback
+
+7. FONTS:
+   □ Inter loading from Google Fonts (check Network tab)
+   □ All text uses var(--font)
+
+8. CONSOLE:
+   □ No console errors or React key warnings
+   □ No missing lucide-react icon errors
+
+9. SPINNER KEYFRAME:
+   □ Confirm @keyframes spin { to { transform: rotate(360deg); } } exists in index.css
+
+Apply all steps now. Work top to bottom. Confirm each step in a comment before starting the next.

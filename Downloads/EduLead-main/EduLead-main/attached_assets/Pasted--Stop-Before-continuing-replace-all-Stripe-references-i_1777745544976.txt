@@ -1,0 +1,302 @@
+"Stop. Before continuing, replace all Stripe references in the entire project with Razorpay. Here are the exact changes needed:
+1. Environment variables
+Remove these:
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+STRIPE_BASIC_PRICE_ID
+STRIPE_PRO_PRICE_ID
+STRIPE_PREMIUM_PRICE_ID
+Add these instead:
+RAZORPAY_KEY_ID=rzp_test_...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+RAZORPAY_BASIC_PLAN_ID=plan_...
+RAZORPAY_PRO_PLAN_ID=plan_...
+RAZORPAY_PREMIUM_PLAN_ID=plan_...
+2. Install Razorpay instead of Stripe
+Remove: stripe
+Add: razorpay
+Run: pip install razorpay
+3. Replace services/billing/stripe_service.py entirely
+Delete that file and create services/billing/razorpay_service.py with this class:
+pythonimport razorpay
+import hmac
+import hashlib
+from django.conf import settings
+from apps.tenants.models import Tenant
+from apps.subscriptions.models import Subscription
+
+client = razorpay.Client(
+    auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+)
+
+QUOTA_MAP = {
+    'basic': 10,
+    'pro': 30,
+    'premium': 100
+}
+
+PRIORITY_MAP = {
+    'basic': 1,
+    'pro': 2,
+    'premium': 3
+}
+
+class RazorpayService:
+
+    def create_subscription(self, tenant_id: str, plan: str) -> dict:
+        """
+        Create a Razorpay subscription for a tenant.
+        Returns subscription object with short_url for payment.
+        Steps:
+        1. Get or create Razorpay customer for this tenant
+        2. Get the plan_id from settings based on plan name
+        3. Create subscription with total_count=12 (12 months)
+        4. Return the subscription id and short_url
+        """
+        tenant = Tenant.objects.get(id=tenant_id)
+        plan_id = {
+            'basic': settings.RAZORPAY_BASIC_PLAN_ID,
+            'pro': settings.RAZORPAY_PRO_PLAN_ID,
+            'premium': settings.RAZORPAY_PREMIUM_PLAN_ID,
+        }[plan]
+
+        subscription = client.subscription.create({
+            'plan_id': plan_id,
+            'customer_notify': 1,
+            'total_count': 12,
+            'notes': {
+                'tenant_id': str(tenant_id),
+                'tenant_name': tenant.name,
+                'plan': plan
+            }
+        })
+
+        tenant.razorpay_subscription_id = subscription['id']
+        tenant.save()
+
+        return {
+            'subscription_id': subscription['id'],
+            'short_url': subscription.get('short_url', ''),
+            'payment_link': f"https://rzp.io/l/{subscription['id']}"
+        }
+
+    def create_payment_link(self, tenant_id: str,
+                             plan: str) -> dict:
+        """
+        Alternative to subscription — one-time payment link.
+        Use this for first month while subscription is being set up.
+        """
+        amount_map = {
+            'basic': 299900,
+            'pro': 699900,
+            'premium': 1499900
+        }
+        tenant = Tenant.objects.get(id=tenant_id)
+        payment_link = client.payment_link.create({
+            'amount': amount_map[plan],
+            'currency': 'INR',
+            'description': f'EduLeads Kerala — {plan.title()} Plan',
+            'customer': {
+                'name': tenant.name,
+                'email': tenant.billing_email,
+            },
+            'notify': {'sms': True, 'email': True},
+            'reminder_enable': True,
+            'notes': {
+                'tenant_id': str(tenant_id),
+                'plan': plan
+            },
+            'callback_url': f"{settings.FRONTEND_URL}/dashboard/billing/success",
+            'callback_method': 'get'
+        })
+        return {
+            'payment_link_id': payment_link['id'],
+            'short_url': payment_link['short_url']
+        }
+
+    def verify_webhook_signature(self, payload: bytes,
+                                  signature: str) -> bool:
+        """
+        Verify Razorpay webhook signature using HMAC SHA256.
+        Always call this before processing any webhook.
+        """
+        expected = hmac.new(
+            settings.RAZORPAY_WEBHOOK_SECRET.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected, signature)
+
+    def handle_payment_captured(self, payload: dict):
+        """
+        Webhook: payment.captured
+        Fired when a one-time payment succeeds.
+        1. Extract tenant_id from payment notes
+        2. Extract plan from payment notes
+        3. Activate plan on tenant
+        4. Set quota
+        5. Record payment in billing ledger
+        """
+        payment = payload['payload']['payment']['entity']
+        tenant_id = payment['notes']['tenant_id']
+        plan = payment['notes']['plan']
+        self._activate_plan(tenant_id, plan)
+
+    def handle_subscription_charged(self, payload: dict):
+        """
+        Webhook: subscription.charged
+        Fired every month when recurring payment succeeds.
+        1. Extract subscription_id
+        2. Find tenant by razorpay_subscription_id
+        3. Reset monthly quota (quota_used = 0)
+        4. Keep plan active
+        5. Add rollover from previous month
+        6. Record payment in billing ledger
+        """
+        subscription = payload['payload']['subscription']['entity']
+        sub_id = subscription['id']
+        tenant = Tenant.objects.get(
+            razorpay_subscription_id=sub_id
+        )
+        self._reset_monthly_quota(tenant)
+
+    def handle_subscription_cancelled(self, payload: dict):
+        """
+        Webhook: subscription.cancelled
+        Downgrade tenant to basic plan.
+        Send notification to tenant admin.
+        """
+        subscription = payload['payload']['subscription']['entity']
+        sub_id = subscription['id']
+        tenant = Tenant.objects.get(
+            razorpay_subscription_id=sub_id
+        )
+        self._downgrade_to_basic(tenant)
+
+    def handle_payment_failed(self, payload: dict):
+        """
+        Webhook: payment.failed
+        1. Find tenant
+        2. Send payment failure notification
+        3. Grace period: keep plan active for 3 days
+        4. After 3 days Celery task downgrades to basic
+        """
+        payment = payload['payload']['payment']['entity']
+        tenant_id = payment['notes'].get('tenant_id')
+        if tenant_id:
+            self._schedule_grace_period_downgrade(tenant_id)
+
+    def _activate_plan(self, tenant_id: str, plan: str):
+        tenant = Tenant.objects.get(id=tenant_id)
+        tenant.plan = plan
+        tenant.quota_monthly = QUOTA_MAP[plan]
+        tenant.priority = PRIORITY_MAP[plan]
+        tenant.save()
+        Subscription.objects.update_or_create(
+            tenant=tenant,
+            defaults={
+                'plan': plan,
+                'quota_monthly': QUOTA_MAP[plan],
+                'status': 'active'
+            }
+        )
+
+    def _reset_monthly_quota(self, tenant: Tenant):
+        unused = tenant.quota_monthly - tenant.quota_used
+        rollover = min(unused, tenant.quota_monthly // 2)
+        tenant.quota_used = 0
+        tenant.rollover_balance = rollover
+        tenant.save()
+
+    def _downgrade_to_basic(self, tenant: Tenant):
+        tenant.plan = 'basic'
+        tenant.quota_monthly = 10
+        tenant.priority = 1
+        tenant.razorpay_subscription_id = None
+        tenant.save()
+
+    def _schedule_grace_period_downgrade(self, tenant_id: str):
+        from tasks.billing_tasks import downgrade_after_grace_period
+        downgrade_after_grace_period.apply_async(
+            args=[tenant_id],
+            countdown=60 * 60 * 24 * 3
+        )
+4. Replace the Stripe webhook view
+In apps/webhooks/views.py, replace the Stripe webhook handler with:
+pythonfrom rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from services.billing.razorpay_service import RazorpayService
+import json
+
+class RazorpayWebhookView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        service = RazorpayService()
+
+        signature = request.headers.get(
+            'X-Razorpay-Signature', ''
+        )
+        if not service.verify_webhook_signature(
+            request.body, signature
+        ):
+            return Response({'error': 'Invalid signature'},
+                            status=403)
+
+        payload = json.loads(request.body)
+        event = payload.get('event')
+
+        handlers = {
+            'payment.captured':
+                service.handle_payment_captured,
+            'subscription.charged':
+                service.handle_subscription_charged,
+            'subscription.cancelled':
+                service.handle_subscription_cancelled,
+            'payment.failed':
+                service.handle_payment_failed,
+        }
+
+        handler = handlers.get(event)
+        if handler:
+            handler(payload)
+
+        return Response({'status': 'ok'})
+5. Update URLs
+In config/urls.py replace:
+pythonpath('api/webhooks/stripe/', StripeWebhookView.as_view()),
+With:
+pythonpath('api/webhooks/razorpay/', RazorpayWebhookView.as_view()),
+6. Add billing task for grace period
+In tasks/billing_tasks.py add:
+python@celery_app.task
+def downgrade_after_grace_period(tenant_id: str):
+    """
+    Called 3 days after payment failure.
+    If payment still not received, downgrade to basic.
+    Check if payment was received in the meantime before downgrading.
+    """
+    from apps.tenants.models import Tenant
+    from services.billing.razorpay_service import RazorpayService
+    tenant = Tenant.objects.get(id=tenant_id)
+    if tenant.plan != 'basic':
+        service = RazorpayService()
+        service._downgrade_to_basic(tenant)
+7. Add razorpay_subscription_id field to Tenant model
+In apps/tenants/models.py add:
+pythonrazorpay_subscription_id = models.CharField(
+    max_length=255, null=True, blank=True
+)
+billing_email = models.EmailField(null=True, blank=True)
+Then run: python manage.py makemigrations && python manage.py migrate
+8. Add two new API endpoints in apps/subscriptions/views.py:
+python# POST /api/subscriptions/create-subscription/
+# Body: {"plan": "basic"|"pro"|"premium"}
+# Creates Razorpay subscription, returns payment link
+
+# POST /api/subscriptions/create-payment-link/
+# Body: {"plan": "basic"|"pro"|"premium"}
+# Creates one-time payment link for first month, returns short_url
+After making all these changes, confirm by listing every file that was modified and show me the final requirements.txt."

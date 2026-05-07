@@ -1,0 +1,638 @@
+Fix and improve the landing page (the public-facing marketing page, not the app). Do NOT touch any API calls, routing, backend logic, or non-landing-page files. Only fix the visual layout, design, spacing, animations, and component quality of the landing page. Work through every section top to bottom.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROBLEMS TO FIX (based on current screenshot)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. NAVBAR IS FLOATING IN THE MIDDLE OF THE PAGE — it appears mid-scroll between the hero and How It Works. Fix: navbar must be fixed/sticky at the very TOP of the page, above the hero.
+2. HERO has too much empty whitespace at the top — reduce padding-top.
+3. HERO stat strip has too much gap below it — tighten spacing.
+4. HOW IT WORKS section has excessive blank space above and below the cards.
+5. PRICING cards are misaligned — Basic card is cut off on the left edge.
+6. PRIVACY & TRUST section has too much vertical padding — looks disconnected.
+7. FOOTER columns are unbalanced — the layout breaks at medium widths.
+8. The page has no Anime.js entrance animations — sections should animate in on scroll.
+9. The "Made with Replit" badge overlaps the pricing section — it must be hidden or repositioned.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — INSTALL ANIME.JS (if not already installed)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Run: npm install animejs
+
+Import in the landing page file:
+  import anime from 'animejs/lib/anime.es.js';
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — NAVBAR (CRITICAL FIX)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The navbar must be the FIRST element rendered on the page, sitting at the very top.
+
+STRUCTURE order in the JSX/HTML:
+  1. <Navbar /> — fixed at top
+  2. <HeroSection />
+  3. <HowItWorksSection />
+  4. <PricingSection />
+  5. <TrustSection />
+  6. <Footer />
+
+NAVBAR STYLES:
+  position: fixed
+  top: 0
+  left: 0
+  right: 0
+  height: 64px
+  zIndex: 1000
+  display: flex
+  alignItems: center
+  justifyContent: space-between
+  padding: 0 40px
+  background: rgba(255, 255, 255, 0.95)
+  backdropFilter: blur(12px)
+  borderBottom: 1px solid rgba(226, 232, 240, 0.8)
+  transition: background 300ms ease, box-shadow 300ms ease
+
+SCROLL BEHAVIOUR — add this JS to the Navbar component:
+  useEffect(() => {
+    const handleScroll = () => {
+      const nav = document.getElementById('main-nav');
+      if (window.scrollY > 20) {
+        nav.style.boxShadow = '0 2px 20px rgba(0,0,0,0.08)';
+        nav.style.background = 'rgba(255,255,255,0.98)';
+      } else {
+        nav.style.boxShadow = 'none';
+        nav.style.background = 'rgba(255,255,255,0.95)';
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+NAVBAR CONTENT (left → center → right):
+
+LEFT — Logo:
+  display: flex, alignItems: center, gap: 10px
+  Square: 30x30px, background: var(--brand-800), color: white,
+          fontSize: 14px, fontWeight: 700, borderRadius: 6px, text: 'E'
+  Text block:
+    'EduLeads' — fontSize: 15px, fontWeight: 700, color: var(--brand-900), lineHeight: 1.1
+    'Kerala'   — fontSize: 11px, fontWeight: 400, color: var(--text-tertiary), lineHeight: 1.1
+
+CENTER — Nav links (hidden on mobile < 768px):
+  display: flex, gap: 32px, alignItems: center
+  Each link:
+    fontSize: 14px, fontWeight: 500, color: var(--text-secondary)
+    textDecoration: none, cursor: pointer
+    transition: color 150ms ease
+    hover: color: var(--text-primary)
+  Links: 'How it works' | 'Pricing' | 'Contact'
+
+RIGHT — Actions:
+  display: flex, gap: 8px, alignItems: center
+  'Sign in' button:
+    background: transparent, color: var(--text-secondary), border: none
+    fontSize: 14px, fontWeight: 500, padding: 8px 16px
+    borderRadius: 8px, cursor: pointer
+    hover: background: var(--surface-muted), color: var(--text-primary)
+  'Get Started' button:
+    background: var(--brand-800), color: white
+    fontSize: 14px, fontWeight: 600, padding: 9px 20px
+    borderRadius: 8px, border: none, cursor: pointer
+    hover: background: var(--brand-700)
+    transition: background 150ms ease
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — HERO SECTION (FIX SPACING + ADD ANIMATION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTAINER:
+  paddingTop: 120px   ← accounts for fixed 64px navbar + breathing room
+  paddingBottom: 72px
+  paddingLeft: 24px, paddingRight: 24px
+  textAlign: center
+  background: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(30,58,95,0.07), transparent)
+  position: relative
+  overflow: hidden
+
+Add a soft decorative element behind the hero (purely visual, no interaction):
+  position: absolute, top: 60px, left: 50%, transform: translateX(-50%)
+  width: 600px, height: 300px, borderRadius: 50%
+  background: radial-gradient(ellipse, rgba(59,118,181,0.06), transparent 70%)
+  pointerEvents: none, zIndex: 0
+
+All hero content: position: relative, zIndex: 1
+
+ANIME.JS ENTRANCE — run on mount:
+  anime({
+    targets: '[data-hero]',
+    opacity: [0, 1],
+    translateY: [20, 0],
+    delay: anime.stagger(80),
+    duration: 600,
+    easing: 'easeOutExpo',
+  });
+Add data-hero attribute to each hero child element in order:
+  overline pill → headline → subheadline → CTA row → trust strip
+
+OVERLINE PILL (data-hero):
+  display: inline-flex, alignItems: center, gap: 6px
+  padding: 6px 14px, borderRadius: 9999px
+  background: var(--brand-50), border: 1px solid var(--brand-100)
+  fontSize: 13px, fontWeight: 500, color: var(--brand-700)
+  marginBottom: 20px
+  Sparkles icon 13px var(--brand-500) on the left
+  Text: 'AI-powered in Malayalam'
+
+HEADLINE (data-hero):
+  fontSize: clamp(36px, 5vw, 52px)
+  fontWeight: 800
+  color: var(--text-primary)
+  lineHeight: 1.12
+  letterSpacing: -0.03em
+  maxWidth: 720px, margin: 0 auto 20px
+  'Qualified' word: color: var(--brand-700)
+    textDecoration: underline wavy
+    textDecorationColor: var(--brand-200)
+    textUnderlineOffset: 5px
+
+SUBHEADLINE (data-hero):
+  fontSize: 18px, fontWeight: 400
+  color: var(--text-secondary)
+  lineHeight: 1.65
+  maxWidth: 520px, margin: 0 auto 36px
+
+CTA ROW (data-hero):
+  display: flex, justifyContent: center, gap: 12px, flexWrap: wrap
+
+  'Get Started Free' button:
+    background: var(--brand-800), color: white
+    padding: 14px 28px, fontSize: 15px, fontWeight: 600
+    borderRadius: 10px, border: none, cursor: pointer
+    boxShadow: 0 4px 14px rgba(30,58,95,0.25)
+    transition: all 200ms ease
+    hover: background var(--brand-700), transform translateY(-1px), boxShadow stronger
+    Zap icon 16px on the left (from lucide-react)
+
+  'See how it works →' button:
+    background: transparent, color: var(--text-secondary)
+    padding: 14px 24px, fontSize: 15px, fontWeight: 500
+    borderRadius: 10px, border: 1px solid var(--border-default)
+    cursor: pointer, transition: all 200ms ease
+    hover: border-color var(--border-strong), color var(--text-primary), background var(--surface-muted)
+
+TRUST STRIP (data-hero):
+  marginTop: 56px
+  display: flex, justifyContent: center, alignItems: center, gap: 0, flexWrap: wrap
+
+  3 stats, each separated by a 1px vertical divider (height 40px, background var(--border-default)):
+  Dividers only on desktop — hide on mobile.
+
+  Each stat:
+    padding: 0 48px (desktop) / 24px 20px (mobile)
+    textAlign: center
+    Number: fontSize: 28px, fontWeight: 800, color: var(--brand-800), display: block
+    Label: fontSize: 13px, color: var(--text-secondary), marginTop: 4px, display: block
+
+  Stats:
+    '500+' / 'Leads delivered'
+    '50+'  / 'Kerala colleges'
+    '<1.5s'  / 'AI response time'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — HOW IT WORKS SECTION (FIX SPACING + ANIMATION)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTAINER:
+  padding: 80px 24px   ← reduce from the current excessive value
+  background: white
+  position: relative
+
+SECTION HEADER:
+  textAlign: center, marginBottom: 48px
+
+  Section badge (same overline pill style as hero):
+    'How it works', display: inline-block, marginBottom: 16px
+
+  Heading:
+    'Three simple steps to qualified leads'
+    fontSize: 32px, fontWeight: 800, color: var(--text-primary)
+    letterSpacing: -0.02em
+
+CARDS GRID:
+  display: grid
+  gridTemplateColumns: repeat(3, 1fr)
+  gap: 20px
+  maxWidth: 1100px, margin: 0 auto
+  position: relative
+  Mobile (< 768px): gridTemplateColumns: 1fr
+
+  Connecting arrows between cards (desktop only, hidden on mobile):
+    Position two arrow elements absolutely between each card pair
+    Each arrow: fontSize: 24px, color: var(--border-strong)
+    Position: absolute, top: 50%, transform: translateY(-50%)
+    Arrow 1: left: calc(33.33% - 12px)
+    Arrow 2: left: calc(66.66% - 12px)
+    Content: '→'
+
+EACH CARD:
+  background: var(--surface-base)
+  border: 1px solid var(--border-default)
+  borderRadius: 16px
+  padding: 28px 24px
+  position: relative
+  overflow: hidden
+  transition: all 200ms ease
+
+  hover:
+    borderColor: var(--border-strong)
+    boxShadow: 0 8px 24px rgba(0,0,0,0.07)
+    transform: translateY(-2px)
+
+  Step number (watermark background text):
+    position: absolute, top: 12px, right: 16px
+    fontSize: 64px, fontWeight: 900
+    color: var(--brand-100)
+    lineHeight: 1, userSelect: none, pointerEvents: none
+    zIndex: 0
+    Text: '01', '02', '03'
+
+  Icon circle (zIndex: 1, position: relative):
+    width: 48px, height: 48px, borderRadius: 50%
+    background: var(--brand-50)
+    display: flex, alignItems: center, justifyContent: center
+    marginBottom: 16px
+    Icon: 22px, color: var(--brand-600)
+
+  Card title (zIndex: 1, position: relative):
+    fontSize: 17px, fontWeight: 700, color: var(--text-primary)
+    marginBottom: 10px
+
+  Card body (zIndex: 1, position: relative):
+    fontSize: 14px, color: var(--text-secondary)
+    lineHeight: 1.65
+
+SCROLL ANIMATION — add IntersectionObserver for this section:
+  When cards enter viewport:
+    anime({
+      targets: '.step-card',
+      opacity: [0, 1],
+      translateY: [24, 0],
+      delay: anime.stagger(100),
+      duration: 500,
+      easing: 'easeOutQuart',
+    });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5 — PRICING SECTION (FIX ALIGNMENT + LAYOUT)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTAINER:
+  padding: 80px 24px
+  background: var(--surface-subtle)
+  position: relative
+  overflow: visible
+
+SECTION HEADER (same pill + heading pattern):
+  textAlign: center, marginBottom: 48px
+  Pill: 'Pricing'
+  Heading: 'Simple, transparent pricing'
+  Subtext: 'No hidden fees. Pay monthly. Cancel anytime.'
+    fontSize: 15px, color: var(--text-secondary), marginTop: 10px
+
+CARDS GRID:
+  display: grid
+  gridTemplateColumns: repeat(3, 1fr)
+  gap: 20px
+  maxWidth: 1100px
+  margin: 0 auto
+  alignItems: start    ← CRITICAL: prevents stretched equal-height columns breaking layout
+  Mobile (< 768px): gridTemplateColumns: 1fr, gap: 16px
+
+  IMPORTANT: Do NOT use overflow:hidden on the grid container.
+  The Pro card uses transform: scale(1.03) — the container must allow it to overflow.
+
+BASIC CARD:
+  background: var(--surface-base)
+  border: 1px solid var(--border-default)
+  borderRadius: 16px
+  padding: 28px 24px
+  DO NOT clip or cut off — ensure the card is fully visible at left edge.
+  Make sure the grid container has no left overflow:hidden.
+
+PRO CARD (middle, highlighted):
+  background: var(--surface-base)
+  border: 2px solid var(--brand-800)
+  borderRadius: 16px
+  padding: 28px 24px
+  transform: scale(1.03)
+  boxShadow: 0 16px 40px rgba(30,58,95,0.15)
+  position: relative
+  zIndex: 2
+
+  'Most Popular' badge:
+    position: absolute, top: -14px, left: 50%, transform: translateX(-50%)
+    background: var(--brand-800), color: white
+    fontSize: 12px, fontWeight: 600, padding: 4px 14px
+    borderRadius: 9999px, whiteSpace: nowrap
+
+PREMIUM CARD:
+  background: var(--surface-base)
+  border: 1px solid var(--border-default)
+  borderRadius: 16px, padding: 28px 24px
+
+EACH CARD CONTENT:
+
+  Plan name row:
+    display: flex, alignItems: center, gap: 8px, marginBottom: 8px
+    Plan name: fontSize: 18px, fontWeight: 700, color: var(--text-primary)
+    Plan badge: use Badge component (basic/pro/premium)
+
+  Price:
+    fontSize: 40px, fontWeight: 800, color: var(--text-primary)
+    letterSpacing: -0.02em
+    '/mo': fontSize: 16px, fontWeight: 400, color: var(--text-secondary)
+    marginBottom: 20px
+
+  Divider: 1px solid var(--border-subtle), margin: 20px 0
+
+  Feature list:
+    display: flex, flexDirection: column, gap: 10px, marginBottom: 24px
+    Each feature row:
+      display: flex, alignItems: flex-start, gap: 10px
+      Icon: CheckCircle 16px, color: var(--green-600), flexShrink: 0, marginTop: 1px
+      Text: fontSize: 14px, color: var(--text-secondary), lineHeight: 1.5
+
+  CTA button:
+    width: 100%, padding: 12px 20px
+    fontSize: 14px, fontWeight: 600
+    borderRadius: 10px, border: none, cursor: pointer
+    transition: all 150ms ease
+    Pro card: background var(--brand-800) color white
+               hover: background var(--brand-700)
+    Others: background transparent, color var(--brand-700)
+            border: 1px solid var(--border-default)
+            hover: background var(--brand-50), borderColor var(--brand-200)
+
+SCROLL ANIMATION for pricing cards:
+  IntersectionObserver → when section enters viewport:
+    anime({
+      targets: '.pricing-card',
+      opacity: [0, 1],
+      translateY: [20, 0],
+      delay: anime.stagger(80),
+      duration: 480,
+      easing: 'easeOutQuart',
+    });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6 — PRIVACY & TRUST SECTION (TIGHTEN + POLISH)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTAINER:
+  padding: 72px 24px   ← reduce from current excessive padding
+  background: linear-gradient(160deg, var(--brand-900) 0%, var(--brand-800) 55%, var(--green-800) 100%)
+  position: relative, overflow: hidden
+
+Background decoration (no interaction, purely visual):
+  Two soft glowing circles:
+    Circle 1: position absolute, width 400px, height 400px, borderRadius 50%
+               background rgba(59,118,181,0.08), top -100px, right -100px
+               pointerEvents none
+    Circle 2: position absolute, width 300px, height 300px, borderRadius 50%
+               background rgba(56,160,87,0.08), bottom -80px, left -60px
+               pointerEvents none
+
+SECTION LABEL (centered):
+  'PRIVACY & TRUST'
+  fontSize: 11px, fontWeight: 600, letterSpacing: 0.12em
+  color: rgba(255,255,255,0.45), textTransform: uppercase
+  marginBottom: 48px, textAlign: center
+
+THREE ITEMS GRID:
+  display: grid, gridTemplateColumns: repeat(3, 1fr)
+  gap: 40px, maxWidth: 900px, margin: 0 auto
+  Mobile (< 768px): gridTemplateColumns: 1fr, gap: 32px
+
+EACH ITEM:
+  textAlign: center
+
+  Icon circle:
+    width: 56px, height: 56px, borderRadius: 50%
+    background: rgba(255,255,255,0.10)
+    border: 1px solid rgba(255,255,255,0.12)
+    display: flex, alignItems: center, justifyContent: center
+    margin: 0 auto 16px
+    Icon: 24px, color: rgba(255,255,255,0.85)
+
+  Title:
+    fontSize: 16px, fontWeight: 700, color: white, marginBottom: 10px
+
+  Description:
+    fontSize: 14px, color: rgba(255,255,255,0.65), lineHeight: 1.65, maxWidth: 240px, margin: 0 auto
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7 — FOOTER (FIX LAYOUT + BALANCE COLUMNS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OUTER CONTAINER:
+  background: #0a1628   ← slightly lighter than pure black for readability
+  color: white, paddingTop: 64px
+
+UPPER FOOTER GRID:
+  maxWidth: 1200px, margin: 0 auto, padding: 0 40px
+  display: grid
+  gridTemplateColumns: 2fr 1fr 1fr 1fr 1fr   ← brand column wider
+  gap: 40px
+  Mobile (< 768px): gridTemplateColumns: 1fr 1fr, the brand column spans full width
+
+COLUMN 1 — Brand:
+  Logo (same as navbar but white text):
+    Square: background rgba(255,255,255,0.12), color white
+    'EduLeads Kerala': fontSize 16px/700 white
+    'AI-powered admissions': fontSize 11px rgba(255,255,255,0.45)
+  Brand description:
+    marginTop: 16px, fontSize: 13px, color: rgba(255,255,255,0.55)
+    lineHeight: 1.7, maxWidth: 220px
+  'Chat on WhatsApp' button:
+    marginTop: 20px, display: inline-flex, alignItems: center, gap: 8px
+    background: #25D366, color: white, padding: 9px 16px
+    borderRadius: 8px, fontSize: 13px, fontWeight: 600, border: none, cursor: pointer
+
+COLUMNS 2-5 — Link columns (Product / Company / Support / Contact):
+  Column heading:
+    fontSize: 11px, fontWeight: 700, letterSpacing: 0.10em
+    textTransform: uppercase, color: rgba(255,255,255,0.35)
+    marginBottom: 16px
+  Links:
+    display: flex, flexDirection: column, gap: 10px
+    fontSize: 13px, color: rgba(255,255,255,0.60)
+    cursor: pointer, hover: color white, transition: color 150ms ease
+    textDecoration: none
+
+CONTACT COLUMN special items:
+  Each item: display flex, gap 8px, alignItems center
+  Small icon (Mail/Phone/MapPin) 13px rgba(255,255,255,0.35)
+  Text: rgba(255,255,255,0.60)
+
+Social links row (below contact links):
+  display: flex, gap: 8px, marginTop: 8px
+  Each social icon: 32x32px circle, background rgba(255,255,255,0.08)
+  borderRadius 50%, display flex center, hover background rgba(255,255,255,0.15)
+  Icon: 15px rgba(255,255,255,0.6)
+
+NEWSLETTER BAR (inside footer, above bottom bar):
+  marginTop: 48px
+  background: rgba(255,255,255,0.05)
+  borderTop: 1px solid rgba(255,255,255,0.08)
+  borderBottom: 1px solid rgba(255,255,255,0.08)
+  padding: 28px 40px
+  display: flex, alignItems: center, justifyContent: space-between, gap: 24px, flexWrap: wrap
+
+  Left text:
+    'Stay updated on Kerala admissions trends'
+    fontSize: 15px, fontWeight: 600, color: white
+    Sub: 'Monthly insights on student intent data, quota usage, and platform updates.'
+    fontSize: 13px, color: rgba(255,255,255,0.50), marginTop: 4px
+
+  Right — email form:
+    display: flex, gap: 8px
+    Input: padding 10px 16px, fontSize 13px, borderRadius 8px
+           background rgba(255,255,255,0.08), border 1px solid rgba(255,255,255,0.15)
+           color white, outline none, width 220px, placeholder rgba(255,255,255,0.35)
+           focus: border-color rgba(255,255,255,0.4)
+    Subscribe button: background var(--brand-600), color white, padding 10px 18px
+           borderRadius 8px, fontSize 13px, fontWeight 600, border none, cursor pointer
+           hover: background var(--brand-500)
+
+BOTTOM BAR:
+  borderTop: 1px solid rgba(255,255,255,0.08)
+  padding: 20px 40px
+  display: flex, alignItems: center, justifyContent: space-between, flexWrap: wrap, gap: 12px
+
+  Left: '© 2026 EduLeads Kerala Pvt. Ltd. All rights reserved.'
+    fontSize: 12px, color: rgba(255,255,255,0.35)
+
+  Center: 'All systems operational' indicator
+    display: flex, alignItems: center, gap: 6px
+    Dot: 8px circle, background: #22c55e
+    Text: fontSize 12px, color rgba(255,255,255,0.40)
+
+  Right: Privacy | Terms | Cookie policy
+    display: flex, gap: 20px
+    fontSize: 12px, color rgba(255,255,255,0.35)
+    hover: rgba(255,255,255,0.70), cursor pointer
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8 — SCROLL-TRIGGERED ANIMATIONS SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Add this reusable utility at the top of the landing page component file:
+
+function useScrollAnimation(selector, animationOptions = {}) {
+  useEffect(() => {
+    const elements = document.querySelectorAll(selector);
+    // Set initial state
+    elements.forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+    });
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            anime({
+              targets: entry.target,
+              opacity: [0, 1],
+              translateY: [20, 0],
+              duration: 480,
+              easing: 'easeOutQuart',
+              ...animationOptions,
+            });
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+    elements.forEach(el => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+}
+
+Use it in the landing page component:
+  useScrollAnimation('.step-card');
+  useScrollAnimation('.pricing-card');
+  useScrollAnimation('.trust-item');
+  useScrollAnimation('.section-header', { delay: 0 });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9 — HIDE "MADE WITH REPLIT" BADGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Find the Replit badge element (it may be injected by Replit's platform or present as a component in the codebase).
+
+Option A — If it's a component in the JSX, remove it or wrap it:
+  // Remove <ReplitBadge /> or similar from LandingPage.jsx
+
+Option B — If it's injected by the platform, suppress it via CSS in index.css:
+  [data-replit-badge],
+  .replit-badge,
+  a[href*="replit.com"][style*="position: fixed"],
+  div[style*="position: fixed"][style*="bottom"] > a[href*="replit"] {
+    display: none !important;
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 10 — GLOBAL LANDING PAGE SPACING RESET
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+In the landing page CSS or component, add these resets to prevent runaway section spacing:
+
+.landing-section {
+  padding-top: 80px;
+  padding-bottom: 80px;
+}
+
+Ensure no section has more than 80px of vertical padding unless it's the hero.
+Specifically check: HowItWorks and Trust sections for margin/padding values above 80px and reduce them.
+
+Between each section, there should be NO extra margin added by child elements bleeding out. Use:
+  .landing-section + .landing-section {
+    /* no extra margin needed — padding is sufficient */
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 11 — MOBILE RESPONSIVENESS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+At 375px viewport width, verify:
+  □ Navbar: logo left, 'Get Started' button right only (hide Sign In + center links)
+  □ Hero: headline font-size at least 30px, no text overflow
+  □ CTA buttons: stack vertically (flex-direction: column), full width
+  □ Trust strip: 3 stats in a single column or 1-row wrap without dividers
+  □ How It Works cards: single column stack
+  □ Pricing cards: single column stack (no scale on Pro card on mobile)
+  □ Trust section items: single column
+  □ Footer upper grid: 2-column on mobile, brand full width first
+  □ Newsletter bar: stack vertically on mobile
+  □ Bottom bar: stack vertically, center aligned
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 12 — FINAL CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+After all steps, verify:
+  □ Navbar appears at the top of the page — above the hero, not floating in the middle
+  □ Navbar scrolls with sticky position correctly (fixed, not relative)
+  □ Hero padding-top is 120px (enough for 64px navbar + breathing room)
+  □ No section has more than 80px padding unless it is the hero
+  □ Pricing grid: Basic card not cut off — fully visible
+  □ Pro pricing card: scale(1.03) visible — container not clipping it
+  □ "Made with Replit" badge is not visible
+  □ All sections animate in on scroll (opacity 0→1, translateY 20→0)
+  □ Hero children stagger animate on page load
+  □ No horizontal scrollbar at any viewport width
+  □ Footer columns balanced and readable
+  □ No console errors from anime.js or missing icons

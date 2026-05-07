@@ -1,0 +1,427 @@
+Build a complete multi-tenant SaaS platform called "EduLeads Kerala" — a lead management and communication platform for colleges and education agencies in Kerala, India. The platform connects students seeking college admissions with colleges and agencies looking for qualified leads.
+
+TECH STACK
+
+Frontend: React + Tailwind CSS
+Backend/Database: Supabase (PostgreSQL + Auth + Realtime)
+Payments: Stripe
+Language: English UI, but all student-facing content supports Malayalam text display
+
+
+USER ROLES
+There are 4 roles. Each has a completely separate dashboard and navigation.
+1. Superadmin
+Platform owner. Sees everything across all tenants.
+2. College Admin
+Owner of a college account. Manages their subscription, team members, and leads.
+3. College Staff
+Employee under a college admin. Can view assigned leads and chat. Cannot manage billing.
+4. Agency Admin
+Same as College Admin but lower priority in lead distribution. Marked as "Agency" type in the system.
+
+MULTI-TENANCY
+Every college and agency is a separate Tenant. All data is isolated per tenant. A college admin can only see their own leads, their own team, and their own billing. Use Supabase Row Level Security (RLS) to enforce this at the database level.
+
+DATABASE SCHEMA
+Create these tables in Supabase:
+tenants
+
+id (uuid, PK)
+name (text) — college or agency name
+type (enum: 'college', 'agency')
+plan (enum: 'basic', 'pro', 'premium') default 'basic'
+quota_monthly (integer) default 10
+quota_used (integer) default 0
+rollover_balance (integer) default 0
+priority (integer) — colleges get higher priority than agencies
+stripe_customer_id (text)
+stripe_subscription_id (text)
+created_at (timestamp)
+
+users
+
+id (uuid, PK, linked to Supabase auth)
+tenant_id (uuid, FK → tenants)
+role (enum: 'superadmin', 'college_admin', 'college_staff', 'agency_admin')
+full_name (text)
+email (text)
+is_active (boolean)
+created_at (timestamp)
+
+students
+
+id (uuid, PK)
+full_name (text)
+phone_encrypted (text) — store phone number encrypted, never expose unless premium
+whatsapp_number (text)
+channel (enum: 'whatsapp', 'phone', 'web')
+preferred_language (text) default 'malayalam'
+consent_given (boolean) default false
+consent_timestamp (timestamp)
+created_at (timestamp)
+deleted_at (timestamp) — for GDPR soft delete
+
+leads
+
+id (uuid, PK)
+student_id (uuid, FK → students)
+full_name (text) — copy from student for quick display
+course_interest (text) — e.g. "B.Tech Computer Science"
+location (text) — student's district in Kerala
+budget_range (enum: 'below_1L', '1L_to_3L', '3L_to_5L', 'above_5L')
+timeline (enum: 'this_year', 'next_year', 'exploring')
+intent_level (enum: 'enroll', 'explore', 'curious')
+score (integer 0–100)
+category (enum: 'hot', 'warm', 'cold')
+status (enum: 'new', 'contacted', 'qualified', 'enrolled', 'lost')
+source_channel (enum: 'whatsapp', 'phone', 'web')
+exclusivity_cap (integer) default 3 — max number of tenants who can receive this lead
+exclusivity_count (integer) default 0 — current count
+notes (text)
+created_at (timestamp)
+expires_at (timestamp) — 90 days from creation
+
+lead_allocations
+
+id (uuid, PK)
+lead_id (uuid, FK → leads)
+tenant_id (uuid, FK → tenants)
+allocated_at (timestamp)
+status (enum: 'delivered', 'viewed', 'contacted', 'converted', 'rejected')
+quota_slot_used (integer)
+conversion_status (boolean) default false
+
+messages
+
+id (uuid, PK)
+lead_id (uuid, FK → leads)
+sender_tenant_id (uuid, FK → tenants) — null if sent by student
+sender_role (text)
+content (text)
+is_from_student (boolean)
+created_at (timestamp)
+read_at (timestamp)
+
+subscriptions
+
+id (uuid, PK)
+tenant_id (uuid, FK → tenants)
+plan (enum: 'basic', 'pro', 'premium')
+quota_monthly (integer)
+quota_used (integer)
+rollover_balance (integer)
+billing_cycle_start (date)
+billing_cycle_end (date)
+stripe_subscription_id (text)
+status (enum: 'active', 'past_due', 'cancelled')
+
+audit_logs
+
+id (uuid, PK)
+tenant_id (uuid)
+user_id (uuid)
+action (text) — e.g. "viewed_lead", "revealed_phone", "exported_leads"
+resource_type (text)
+resource_id (uuid)
+ip_address (text)
+created_at (timestamp)
+
+
+SUBSCRIPTION PLANS
+Three plans with different access levels. Enforce these rules everywhere in the UI and database queries.
+Basic — ₹2,999/month
+
+10 leads per month
+View lead: name, course, location, score, category only
+Communication: in-app chat only
+Phone number: hidden (shows as "Upgrade to Premium")
+No export
+Shared leads (up to 5 colleges per lead)
+
+Pro — ₹6,999/month
+
+30 leads per month
+View lead: name, course, location, score, budget range, timeline, intent level
+Communication: in-app chat + masked call button (shows "Call via Platform")
+Phone number: hidden
+No export
+Shared leads (up to 3 colleges per lead)
+
+Premium — ₹14,999/month
+
+100 leads per month
+View lead: all fields including real phone number
+Communication: in-app chat + masked call + direct phone number visible
+Export leads to CSV
+Exclusive leads available (exclusivity_cap = 1)
+Priority lead delivery
+
+
+SUPERADMIN DASHBOARD
+Route: /admin
+Build these pages:
+Overview page
+
+Total tenants (colleges + agencies separately)
+Total leads in system
+Total leads delivered this month
+Monthly revenue (from Stripe)
+Active subscriptions by plan (Basic / Pro / Premium) as a bar chart
+Recent signups table
+
+Tenants page
+
+Table: tenant name, type, plan, quota used/total, status, joined date
+Click a tenant to see their full profile
+Ability to manually change a tenant's plan
+Ability to deactivate a tenant
+Search and filter by type and plan
+
+Leads management page
+
+All leads in the system
+Table: student name (masked as "Student #001"), course, location, score, category, status, allocated to (how many tenants), created date
+Filter by category (hot/warm/cold), status, course, location
+Manual lead entry form (for team to add leads by hand during early stage)
+Lead detail view showing full information
+Assign lead to specific tenants manually
+
+Manual lead entry form fields:
+
+Student name
+WhatsApp number
+Course interest (dropdown + free text)
+Location (Kerala districts dropdown)
+Budget range (dropdown)
+Timeline (dropdown)
+Intent level (dropdown)
+Notes
+On submit: auto-calculate score using this rule:
+
+intent = enroll → 30pts, explore → 15pts, curious → 5pts
+course filled specifically → 20pts, vague → 10pts
+budget confirmed → 20pts, range → 10pts, unknown → 0pts
+timeline = this_year → 15pts, next_year → 8pts, exploring → 2pts
+all fields filled → 15pts, most filled → 8pts, minimal → 2pts
+Sum all → total score → if ≥70 category=hot, 40–69 category=warm, <40 category=cold
+
+
+
+Analytics page
+
+Leads created per day (line chart, last 30 days)
+Lead category breakdown (pie chart: hot/warm/cold)
+Conversion funnel: new → contacted → qualified → enrolled
+Top performing tenants by conversion rate
+Revenue by plan (bar chart)
+
+Users page
+
+All users across all tenants
+Table: name, email, role, tenant, last login, status
+Ability to deactivate any user
+
+
+COLLEGE DASHBOARD
+Route: /dashboard
+Accessible by college_admin and college_staff. Data is filtered to their tenant only via RLS.
+Overview page
+
+Monthly quota: used X of Y leads (progress bar with colour — green if <70%, amber if 70–90%, red if >90%)
+Leads remaining this month
+Rollover balance from last month
+Lead breakdown: hot / warm / cold counts (three coloured cards)
+Recent leads table (last 5, with quick action buttons)
+Unread messages count
+Subscription plan badge (Basic / Pro / Premium) with "Upgrade" button
+
+Leads page
+
+Table of all leads allocated to this tenant
+Columns: name, course, location, score (badge coloured by category), status, received date, last activity, action button
+Score badge colours: hot = green, warm = amber, cold = gray
+Filter by: category, status, course, location, date range
+Search by name or course
+Click a lead to open Lead Detail page
+
+Lead Detail page
+This is the most important page. Build it carefully.
+Left panel — student information:
+
+Full name
+Course interest
+Location (Kerala district)
+Budget range
+Timeline
+Intent level
+Lead score (large number with colour)
+Lead category badge
+Source channel (WhatsApp / Phone / Web)
+Status dropdown (college can update: new → contacted → qualified → enrolled → lost)
+Notes field (college can add private notes)
+Phone number field:
+
+If plan = basic or pro: show a blurred/masked field with lock icon and text "Upgrade to Premium to view phone number" and an Upgrade button
+If plan = premium: show actual phone number with a copy button. Log this action to audit_logs as "revealed_phone"
+
+
+
+Right panel — in-app messaging:
+
+Chat interface showing message history for this lead
+Messages from college show on right (blue bubbles)
+Messages from student show on left (gray bubbles)
+Text input at bottom with Send button
+Real-time updates using Supabase Realtime subscriptions
+If plan = pro or premium: show "Call via Platform" button (just UI for now, will connect to Twilio later — show a modal saying "Masked call feature coming soon. Your number will never be shared with the student.")
+
+Quota page
+
+Current plan details
+Quota used this month with progress bar
+Rollover balance
+History table: month, leads received, leads converted, conversion rate
+"Upgrade Plan" button linking to pricing page
+
+Team page (college_admin only)
+
+List of staff members under this tenant
+Invite new staff by email
+Deactivate staff members
+Each staff member shows: name, email, role, last login
+
+Settings page (college_admin only)
+
+College profile: name, type (college/agency), address, website
+Notification preferences: email on new lead, email on message, weekly summary
+Change password
+Billing portal button (opens Stripe billing portal)
+
+
+AUTHENTICATION PAGES
+/login
+
+Email + password login
+"Forgot password" link
+After login, redirect based on role: superadmin → /admin, others → /dashboard
+
+/register
+
+Fields: College/Agency name, type (college or agency radio button), your name, email, password, confirm password
+After registration: create tenant record, create user record linked to tenant, set plan = basic, redirect to /onboarding
+
+/onboarding
+
+Step 1: "Welcome to EduLeads Kerala" — show what the platform does in 3 bullet points
+Step 2: Choose a plan (Basic / Pro / Premium) with pricing cards — clicking a paid plan goes to Stripe checkout
+Step 3: "Your account is ready. View your dashboard."
+
+/pricing (public page)
+
+Three plan cards: Basic ₹2,999, Pro ₹6,999, Premium ₹14,999
+Feature comparison table below
+"Get Started" button on each plan
+
+
+LANDING PAGE
+Route: /
+Build a professional landing page for colleges and agencies in Kerala.
+Sections:
+
+Hero: "Find Qualified Students for Your College — AI-Powered Lead Generation in Malayalam" with CTA "Get Your First Leads Free"
+How it works: 3 steps — Student chats on WhatsApp → AI qualifies and scores → College receives verified lead
+Features: Lead scoring, communication control, subscription plans, Malayalam AI
+Pricing section (same as /pricing)
+Trust section: "Student phone numbers are never shared without consent"
+CTA section: "Start with 10 free leads this month"
+Footer with contact email
+
+
+LEAD SCORING LOGIC
+Implement this as a reusable function called calculateLeadScore(leadData) used everywhere a lead is created or updated:
+function calculateLeadScore(leadData) {
+  let score = 0
+
+  // Intent (max 30)
+  if (leadData.intent_level === 'enroll') score += 30
+  else if (leadData.intent_level === 'explore') score += 15
+  else score += 5
+
+  // Course clarity (max 20)
+  if (leadData.course_interest && leadData.course_interest.length > 10) score += 20
+  else if (leadData.course_interest) score += 10
+
+  // Budget (max 20)
+  if (leadData.budget_range && leadData.budget_range !== 'unknown') score += 20
+  else score += 0
+
+  // Timeline (max 15)
+  if (leadData.timeline === 'this_year') score += 15
+  else if (leadData.timeline === 'next_year') score += 8
+  else score += 2
+
+  // Completeness (max 15)
+  const fields = [leadData.full_name, leadData.course_interest,
+                  leadData.location, leadData.budget_range,
+                  leadData.timeline, leadData.intent_level]
+  const filled = fields.filter(f => f && f.length > 0).length
+  if (filled === 6) score += 15
+  else if (filled >= 4) score += 8
+  else score += 2
+
+  const category = score >= 70 ? 'hot' : score >= 40 ? 'warm' : 'cold'
+  return { score, category }
+}
+
+LEAD ALLOCATION LOGIC
+When a new lead is created (manually by admin or later by AI), run this allocation function:
+
+Get all active tenants with quota_remaining > 0
+Filter tenants where their preferred courses match the lead's course_interest (or if no preference set, include all)
+Sort tenants by priority: colleges before agencies, then by plan (premium=3, pro=2, basic=1), then by quota_used ascending (least used first — round robin effect)
+For each tenant in sorted order:
+
+If lead.exclusivity_count >= lead.exclusivity_cap: stop allocating
+If tenant.quota_used >= tenant.quota_monthly: skip
+Create lead_allocation record
+Increment tenant.quota_used by 1
+Increment lead.exclusivity_count by 1
+Send in-app notification to tenant
+
+
+Premium tenants: exclusivity_cap for their allocated leads = 1 (exclusive)
+Pro tenants: exclusivity_cap = 3
+Basic tenants: exclusivity_cap = 5
+
+
+NOTIFICATIONS
+Use Supabase Realtime for in-app notifications:
+
+New lead allocated to tenant → show notification bell with count badge
+New message received → show unread badge on that lead
+Quota at 80% → show warning banner on dashboard
+Quota at 100% → show upgrade prompt banner
+
+
+DESIGN REQUIREMENTS
+
+Clean, professional design suitable for Kerala college administrators
+Primary colour: deep blue (#1E3A5F)
+Accent colour: Kerala green (#2D7D46)
+Use Inter or Poppins font
+Mobile responsive — college staff will use this on phones
+All tables must work on mobile (horizontal scroll or card view)
+Hot leads: green badge, Warm leads: amber badge, Cold leads: gray badge
+Sidebar navigation on desktop, bottom navigation on mobile
+Loading skeletons on all data tables
+Empty states with helpful messages (e.g. "No leads yet. Your leads will appear here once allocated.")
+
+
+IMPORTANT RULES TO ENFORCE EVERYWHERE
+
+Phone numbers are NEVER shown unless plan = premium AND the user explicitly clicks "Reveal Phone Number"
+Every phone reveal is logged to audit_logs
+College staff cannot see billing or team management pages — only college_admin can
+Tenants can only see their own leads — enforce with Supabase RLS on every query
+Quota must be checked before showing a lead — if over quota, show upgrade prompt
+Export to CSV only available on premium plan

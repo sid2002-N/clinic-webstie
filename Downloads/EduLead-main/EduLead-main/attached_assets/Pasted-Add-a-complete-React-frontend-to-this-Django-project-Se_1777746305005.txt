@@ -1,0 +1,209 @@
+Add a complete React frontend to this Django project. Set it up as follows:
+Create a new folder called frontend at the root of the project alongside the edulead_backend folder.
+Frontend tech stack:
+
+React 18 with Vite
+Tailwind CSS for styling
+shadcn/ui for components
+React Router v6 for navigation
+TanStack Query (React Query) for API calls and caching
+Zustand for global state (auth token, user info, plan, role)
+Axios for HTTP requests with JWT interceptor
+Recharts for analytics charts
+Socket.io-client or native WebSocket for realtime chat
+
+Setup steps:
+
+Create frontend/ with a Vite + React project
+Install all dependencies above
+Configure Vite proxy: all /api/ requests proxy to http://localhost:8000 so no CORS issues in development
+Configure Tailwind with these brand colours:
+
+Primary: #1E3A5F (deep blue)
+Accent: #2D7D46 (Kerala green)
+Hot lead: #16a34a (green)
+Warm lead: #d97706 (amber)
+Cold lead: #6b7280 (gray)
+
+
+Set up Django to serve the built frontend in production: after npm run build, Django serves index.html from frontend/dist for all non-API routes
+Add a concurrently dev script at the root level so one command starts both Django and Vite together:
+npm run dev → starts both python manage.py runserver and vite simultaneously
+
+Global state (Zustand store):
+javascript// Store these after login — extracted from JWT payload
+{
+  accessToken: string,
+  refreshToken: string,
+  userId: string,
+  tenantId: string,
+  tenantName: string,
+  plan: 'basic' | 'pro' | 'premium',
+  role: 'superadmin' | 'college_admin' | 'college_staff' | 'agency_admin',
+  isAuthenticated: boolean
+}
+Axios setup with auto-refresh:
+
+Base URL: /api (proxied to Django)
+Every request adds Authorization: Bearer {accessToken}
+On 401 response: automatically call /api/auth/refresh/ with refresh token, update access token in store, retry original request
+On refresh failure: clear store and redirect to /login
+
+React Router structure:
+/ → Landing page (public)
+/pricing → Pricing page (public)
+/login → Login page (public)
+/register → Register page (public)
+/onboarding → Onboarding flow (authenticated, new users)
+
+/admin → Superadmin layout (role=superadmin only)
+/admin/overview → Platform overview
+/admin/tenants → All tenants
+/admin/tenants/:id → Tenant detail
+/admin/leads → All leads
+/admin/leads/new → Manual lead entry form
+/admin/leads/:id → Lead detail
+/admin/analytics → Platform analytics
+/admin/users → All users
+/admin/payments → Payment ledger
+
+/dashboard → College/Agency layout (all other roles)
+/dashboard/overview → College overview
+/dashboard/leads → Leads list
+/dashboard/leads/:id → Lead detail with chat
+/dashboard/quota → Quota and usage
+/dashboard/team → Team management (admin only)
+/dashboard/settings → Settings
+/dashboard/billing → Billing and plan
+Route guards:
+
+PublicRoute: redirect to /dashboard if already logged in
+PrivateRoute: redirect to /login if not authenticated
+AdminRoute: redirect to /dashboard if role !== superadmin
+PlanGate component: wraps any feature, shows upgrade prompt if plan requirement not met
+
+Now build these pages and components fully:
+
+1. Login page (/login)
+
+Email + password form
+Show/hide password toggle
+Error message on failed login
+Loading spinner on submit
+On success: decode JWT, populate Zustand store, redirect based on role
+Link to /register
+
+2. Register page (/register)
+
+Fields: College/Agency name, type radio (College / Agency), your full name, email, password, confirm password
+Client-side validation before submit
+On success: redirect to /onboarding
+
+3. Onboarding (/onboarding)
+
+Step 1: Welcome screen with 3 bullet points explaining the platform
+Step 2: Plan selection cards (Basic / Pro / Premium) with features listed
+Clicking a plan shows a modal: 'To activate this plan contact us on WhatsApp: +91-XXXXXXXXXX. We will activate within 2 hours of payment.'
+Step 3: 'Your account is ready' with Go to Dashboard button
+
+4. Superadmin Overview (/admin/overview)
+
+4 metric cards: Total Tenants, Total Leads, Leads This Month, Active Subscriptions
+Bar chart: subscriptions by plan (Basic/Pro/Premium) using Recharts
+Recent signups table: name, type, plan, joined date
+All data from GET /api/admin/analytics/
+
+5. Manual Lead Entry (/admin/leads/new)
+This is the most critical page. Build it carefully.
+
+Form fields:
+
+Student name (text)
+WhatsApp number (tel input, Indian format validation)
+Course interest (searchable select: B.Tech Computer Science, BCA, B.Com, MBA, BAMS, B.Pharm, B.Ed, LLB, B.Sc Nursing, B.Arch + free text option)
+Location (select: all 14 Kerala districts — Thiruvananthapuram, Kollam, Pathanamthitta, Alappuzha, Kottayam, Idukki, Ernakulam, Thrissur, Palakkad, Malappuram, Kozhikode, Wayanad, Kannur, Kasaragod)
+Budget range (select: Below ₹1 Lakh, ₹1–3 Lakh, ₹3–5 Lakh, Above ₹5 Lakh)
+Timeline (select: This academic year, Next academic year, Just exploring)
+Intent level (select: Ready to enroll, Exploring options, Just curious)
+Notes (textarea)
+
+
+Live score preview: as the admin fills the form, show a live updating score card on the right side showing the current score out of 100 and the category badge (Hot/Warm/Cold) updating in real time using the scoring formula
+On submit: POST to /api/admin/leads/, show success with which colleges received the lead
+
+6. College Dashboard Overview (/dashboard/overview)
+
+Quota progress bar: Used X of Y leads — green under 70%, amber 70-90%, red over 90%
+3 stat cards: Hot Leads, Warm Leads, Cold Leads with counts and colours
+Unread messages badge
+Recent leads table (last 5) with quick action buttons
+Plan badge with Upgrade button if not premium
+
+7. Leads List (/dashboard/leads)
+
+Table with columns: Name, Course, Location, Score (coloured badge), Category, Status, Received, Actions
+Filter bar: Category dropdown, Status dropdown, Course search, Location dropdown, Date range
+Pagination (20 per page)
+Mobile: card view instead of table
+Click row → navigate to /dashboard/leads/:id
+
+8. Lead Detail (/dashboard/leads/:id)
+Split layout — left panel student info, right panel chat.
+Left panel:
+
+All lead fields displayed cleanly
+Score displayed as large coloured number
+Status dropdown (college updates this)
+Notes textarea (private to this college)
+Phone number field:
+
+Basic/Pro plan: blurred field with lock icon, 'Upgrade to Premium' button
+Premium plan: show 'Reveal Phone Number' button
+On click reveal: call GET /api/leads/:id/reveal-phone/, show number with copy button, log is automatic on backend
+
+
+If Pro or Premium: 'Call via Platform' button — show modal 'Masked call feature — your number stays private. Click confirm to connect.' (calls POST /api/leads/:id/call/)
+
+Right panel (chat):
+
+Message history loaded from GET /api/leads/:id/messages/
+Messages from college: right-aligned blue bubbles
+Messages from student: left-aligned gray bubbles
+Text input + Send button
+Real-time updates: connect to WebSocket ws://localhost:8000/ws/chat/{lead_id}/ with JWT token in query param
+Unread messages auto-marked as read when panel opens
+
+9. Quota Page (/dashboard/quota)
+
+Current plan card with all features listed
+Large quota progress bar
+Rollover balance display
+Monthly history table: Month, Leads Received, Converted, Conversion Rate
+Upgrade CTA for non-premium plans
+
+10. Landing Page (/)
+
+Hero section: 'Find Qualified Students for Your College — AI-Powered Lead Generation in Malayalam'
+CTA button: 'Get Your First 10 Leads Free' → /register
+How it works: 3 steps with icons
+Pricing section (reuse pricing cards component)
+Trust section: student privacy guarantee
+Footer with WhatsApp contact link
+
+Design system to apply everywhere:
+
+Font: Inter (import from Google Fonts)
+All cards: white background, subtle shadow, rounded-xl
+Hot badge: bg-green-100 text-green-800
+Warm badge: bg-amber-100 text-amber-800
+Cold badge: bg-gray-100 text-gray-800
+Primary button: bg-[#1E3A5F] text-white hover:bg-[#162d4a]
+Accent button: bg-[#2D7D46] text-white hover:bg-[#236338]
+Sidebar: white background with subtle border-r
+Active nav item: bg-blue-50 text-[#1E3A5F] border-r-2 border-[#1E3A5F]
+All tables: hover:bg-gray-50 on rows, sticky header
+Loading state: skeleton animation on every data container
+Empty state: centered illustration placeholder + helpful message on every table
+Mobile: bottom navigation bar with 4 icons (Overview, Leads, Messages, Settings)
+
+Build all 10 pages and components now. Make sure every API call uses the Axios instance with JWT interceptor. Make sure route guards are working. Make sure the Vite proxy is configured so API calls work without CORS errors."

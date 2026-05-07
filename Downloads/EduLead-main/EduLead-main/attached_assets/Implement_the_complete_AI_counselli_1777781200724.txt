@@ -1,0 +1,1490 @@
+Implement the complete AI counselling system and controlled communication features. This covers four things: WhatsApp AI intake for students, voice call intake for students, in-platform masked communication for colleges, and the full conversation-to-lead pipeline. Every feature described below must be production-ready with proper error handling, logging, and fallbacks.
+
+PART 1 — WHATSAPP AI COUNSELLOR (STUDENT SIDE)
+1.1 Twilio WhatsApp Webhook
+File: apps/webhooks/views.py
+pythonclass TwilioWhatsAppWebhookView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        # STEP 1: Always validate Twilio signature first
+        # If signature invalid: log the attempt and return 403
+        # Never process unsigned requests
+        
+        validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
+        signature = request.META.get('HTTP_X_TWILIO_SIGNATURE', '')
+        url = request.build_absolute_uri()
+        
+        if not validator.validate(url, request.POST, signature):
+            AuditLogger.log(
+                actor='system',
+                action='invalid_twilio_signature',
+                resource_type='webhook',
+                ip=request.META.get('REMOTE_ADDR')
+            )
+            return Response({'error': 'Forbidden'}, status=403)
+        
+        # STEP 2: Extract message data
+        from_number = request.POST.get('From', '').replace('whatsapp:', '')
+        body = request.POST.get('Body', '').strip()
+        num_media = int(request.POST.get('NumMedia', 0))
+        media_url = request.POST.get('MediaUrl0') if num_media > 0 else None
+        message_sid = request.POST.get('MessageSid')
+        
+        # STEP 3: Deduplicate — Twilio sometimes sends same message twice
+        cache_key = f'twilio_msg:{message_sid}'
+        if cache.get(cache_key):
+            return Response(status=200)
+        cache.set(cache_key, True, timeout=300)
+        
+        # STEP 4: Queue async processing — never do heavy work in webhook
+        process_whatsapp_message.delay(
+            from_number=from_number,
+            body=body,
+            media_url=media_url,
+            message_sid=message_sid
+        )
+        
+        # STEP 5: Return 200 immediately so Twilio does not retry
+        return Response(status=200)
+1.2 WhatsApp Message Processor (Celery Task)
+File: tasks/ai_tasks.py
+python@celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
+def process_whatsapp_message(self, from_number, body,
+                              media_url=None, message_sid=None):
+    try:
+        handler = WhatsAppHandler()
+        handler.handle_incoming(
+            from_number=from_number,
+            body=body,
+            media_url=media_url
+        )
+    except Exception as exc:
+        # Log error with full context
+        logger.error(f'WhatsApp processing failed: {exc}',
+                     extra={'from': from_number, 'body': body[:100]})
+        raise self.retry(exc=exc)
+1.3 WhatsApp Handler Service
+File: services/communications/whatsapp.py
+Build the complete WhatsAppHandler class:
+pythonimport redis
+import json
+from twilio.rest import Client as TwilioClient
+from django.conf import settings
+from apps.students.models import Student
+from apps.conversations.models import Conversation, Message
+from services.ai.gpt_counsellor import GPTCounsellorService
+from services.compliance.consent import ConsentService
+
+class WhatsAppHandler:
+    
+    def __init__(self):
+        self.twilio = TwilioClient(
+            settings.TWILIO_ACCOUNT_SID,
+            settings.TWILIO_AUTH_TOKEN
+        )
+        self.gpt = GPTCounsellorService()
+        self.redis = redis.from_url(settings.REDIS_URL)
+        self.consent = ConsentService()
+    
+    def handle_incoming(self, from_number: str, body: str,
+                         media_url: str = None):
+        
+        # 1. Get or create student
+        student, created = Student.objects.get_or_create(
+            whatsapp_number=from_number,
+            defaults={
+                'channel': 'whatsapp',
+                'preferred_language': 'malayalam'
+            }
+        )
+        
+        # 2. Handle consent flow
+        if not student.consent_given:
+            self._handle_consent_flow(student, body)
+            return
+        
+        # 3. Get or create active conversation
+        conversation = self._get_or_create_conversation(student)
+        
+        # 4. Check if conversation is already complete
+        if conversation.state == 'ENDED':
+            self._handle_returning_student(student, conversation)
+            return
+        
+        # 5. Handle audio message — transcribe with Whisper
+        if media_url and self._is_audio(media_url):
+            from services.ai.whisper_stt import WhisperSTTService
+            stt = WhisperSTTService()
+            body = stt.transcribe_from_url(media_url)
+            if not body:
+                self.send_message(
+                    from_number,
+                    'ക്ഷമിക്കണം, ആ ഓഡിയോ മനസ്സിലായില്ല. '
+                    'ദയവായി ടൈപ്പ് ചെയ്ത് അയക്കാമോ?'
+                )
+                return
+        
+        # 6. Load conversation history from Redis
+        history = self._load_history(conversation.id)
+        
+        # 7. Save student message
+        Message.objects.create(
+            conversation=conversation,
+            content=body,
+            is_from_student=True,
+            channel='whatsapp'
+        )
+        self._append_history(conversation.id, 'user', body)
+        
+        # 8. Detect frustration — trigger handoff if needed
+        if self.gpt.detect_frustration(history):
+            self._trigger_handoff(student, conversation)
+            return
+        
+        # 9. Get GPT response
+        response_text = self.gpt.chat(
+            conversation_history=history,
+            new_message=body,
+            conversation_state=conversation.state
+        )
+        
+        # 10. Save AI response
+        Message.objects.create(
+            conversation=conversation,
+            content=response_text,
+            is_from_student=False,
+            channel='whatsapp',
+            sender_type='ai'
+        )
+        self._append_history(conversation.id, 'assistant', response_text)
+        
+        # 11. Update conversation state machine
+        new_state = self.gpt.get_next_state(
+            history=history,
+            current_state=conversation.state
+        )
+        conversation.state = new_state
+        conversation.save()
+        
+        # 12. Check if data collection is complete
+        if self.gpt.is_conversation_complete(history):
+            self._finalise_conversation(student, conversation, history)
+            return
+        
+        # 13. Send response back to student
+        self.send_message(from_number, response_text)
+    
+    def _handle_consent_flow(self, student: Student, body: str):
+        body_upper = body.strip().upper()
+        
+        if body_upper in ['YES', 'ഹാ', 'ശരി', 'OK', 'OKAY', 'അതെ', 'HA', 'SHARI']:
+            # Record consent
+            self.consent.record_consent(
+                student_id=str(student.id),
+                channel='whatsapp',
+                ip_address='whatsapp'
+            )
+            student.consent_given = True
+            student.save()
+            
+            # Send welcome and first question
+            welcome = (
+                'നന്ദി! നിങ്ങളുടെ കോളേജ് അഡ്മിഷൻ യാത്ര '
+                'ആരംഭിക്കാം. 😊\n\n'
+                'ആദ്യം, നിങ്ങൾ ഏത് കോഴ്‌സ് പഠിക്കാൻ '
+                'ആഗ്രഹിക്കുന്നു? '
+                '(ഉദാഹരണം: B.Tech, BCA, B.Com, MBA, BAMS...)'
+            )
+            self.send_message(student.whatsapp_number, welcome)
+        
+        elif body_upper in ['NO', 'വേണ്ട', 'VENDA']:
+            self.send_message(
+                student.whatsapp_number,
+                'മനസ്സിലായി. നിങ്ങളുടെ വിവരങ്ങൾ ഞങ്ങൾ '
+                'സൂക്ഷിക്കുന്നില്ല. '
+                'ഭാവിയിൽ സഹായം വേണ്ടി വന്നാൽ തിരികെ '
+                'വരൂ! 🙏'
+            )
+        
+        else:
+            # First message — send consent request
+            consent_msg = (
+                'നമസ്കാരം! 🙏 ഞാൻ Mitra, EduLeads Kerala-യുടെ '
+                'AI കൗൺസലർ.\n\n'
+                'കേരളത്തിലെ മികച്ച കോളേജുകൾ കണ്ടെത്താൻ '
+                'ഞാൻ നിങ്ങളെ സഹായിക്കും.\n\n'
+                'തുടരുന്നതിന് മുൻപ്, നിങ്ങളുടെ വിവരങ്ങൾ '
+                'യോഗ്യരായ കോളേജുകളുമായി പങ്കുവെക്കാൻ '
+                'സമ്മതമുണ്ടോ?\n\n'
+                '*YES* അല്ലെങ്കിൽ *NO* എന്ന് മറുപടി നൽകുക.'
+            )
+            self.send_message(student.whatsapp_number, consent_msg)
+    
+    def _handle_returning_student(self, student: Student,
+                                   old_conversation: Conversation):
+        msg = (
+            'നമസ്കാരം! 🙏 നിങ്ങൾ മുൻപ് ഞങ്ങളുമായി '
+            'സംസാരിച്ചിരുന്നു.\n\n'
+            'പുതിയ കൗൺസലിംഗ് ആരംഭിക്കണമോ? '
+            '*YES* എന്ന് മറുപടി നൽകുക.'
+        )
+        self.send_message(student.whatsapp_number, msg)
+    
+    def _finalise_conversation(self, student: Student,
+                                 conversation: Conversation,
+                                 history: list):
+        # Extract structured lead data from conversation
+        lead_data = self.gpt.extract_lead_data(history)
+        lead_data['student_id'] = str(student.id)
+        
+        # Send confirmation to student
+        confirmation = (
+            f'നന്ദി {lead_data.get("full_name", "")}! 😊\n\n'
+            f'നിങ്ങളുടെ വിവരങ്ങൾ ശേഖരിച്ചു:\n'
+            f'📚 കോഴ്‌സ്: {lead_data.get("course_interest", "")}\n'
+            f'📍 സ്ഥലം: {lead_data.get("location", "")}\n'
+            f'💰 ബജറ്റ്: {lead_data.get("budget_display", "")}\n\n'
+            f'ഉടൻ തന്നെ അനുയോജ്യമായ കോളേജുകൾ '
+            f'ബന്ധപ്പെടും. 🎓'
+        )
+        self.send_message(student.whatsapp_number, confirmation)
+        
+        # Mark conversation complete
+        conversation.state = 'ENDED'
+        conversation.save()
+        
+        # Clear Redis history
+        self.redis.delete(f'conv_history:{conversation.id}')
+        
+        # Trigger lead creation pipeline
+        from tasks.lead_tasks import create_score_and_allocate_lead
+        create_score_and_allocate_lead.delay(lead_data)
+    
+    def _trigger_handoff(self, student: Student,
+                          conversation: Conversation):
+        conversation.state = 'HANDOFF'
+        conversation.save()
+        
+        self.send_message(
+            student.whatsapp_number,
+            'ഒരു നിമിഷം... ഞാൻ ഒരു മനുഷ്യ കൗൺസലറെ '
+            'ബന്ധിപ്പിക്കുന്നു. 👤\n'
+            'അൽപ്പം സമയം കാത്തിരിക്കൂ.'
+        )
+        
+        from tasks.ai_tasks import trigger_human_handoff
+        trigger_human_handoff.delay(
+            str(conversation.id),
+            reason='frustration_detected'
+        )
+    
+    def send_message(self, to_number: str, message: str):
+        try:
+            self.twilio.messages.create(
+                from_=f'whatsapp:{settings.TWILIO_WHATSAPP_NUMBER}',
+                to=f'whatsapp:{to_number}',
+                body=message
+            )
+        except Exception as e:
+            logger.error(f'WhatsApp send failed to {to_number}: {e}')
+            raise
+    
+    def _get_or_create_conversation(self,
+                                     student: Student) -> Conversation:
+        conv = Conversation.objects.filter(
+            student=student,
+            channel='whatsapp',
+            state__in=['INIT', 'GREETING', 'PROFILE_COLLECT',
+                       'INTENT_QUALIFY', 'SCORING', 'RECOMMEND',
+                       'CLOSING']
+        ).first()
+        
+        if not conv:
+            conv = Conversation.objects.create(
+                student=student,
+                channel='whatsapp',
+                state='GREETING'
+            )
+        return conv
+    
+    def _load_history(self, conv_id) -> list:
+        key = f'conv_history:{conv_id}'
+        data = self.redis.get(key)
+        return json.loads(data) if data else []
+    
+    def _append_history(self, conv_id, role: str, content: str):
+        key = f'conv_history:{conv_id}'
+        history = self._load_history(conv_id)
+        history.append({'role': role, 'content': content})
+        # Keep only last 20 messages to manage context window
+        if len(history) > 20:
+            history = history[-20:]
+        self.redis.setex(key, 86400, json.dumps(history))
+    
+    def _is_audio(self, media_url: str) -> bool:
+        return any(ext in media_url.lower()
+                   for ext in ['audio', 'ogg', 'mp3', 'wav', 'amr'])
+
+PART 2 — GPT-4 MALAYALAM COUNSELLOR
+File: services/ai/gpt_counsellor.py
+pythonimport openai
+import json
+from django.conf import settings
+
+class GPTCounsellorService:
+    
+    SYSTEM_PROMPT = """
+നീ Mitra ആണ്. EduLeads Kerala-യുടെ AI അക്കാദമിക് കൗൺസലർ.
+നീ മലയാളത്തിൽ സ്വാഭാവികമായും ഊഷ്മളമായും സംസാരിക്കുന്നു.
+
+നിന്റെ ലക്ഷ്യം:
+കേരളത്തിലെ വിദ്യാർഥികളെ ശരിയായ കോളേജ് അഡ്മിഷൻ
+കണ്ടെത്താൻ സഹായിക്കുക.
+
+ഈ 5 കാര്യങ്ങൾ ശേഖരിക്കണം:
+1. full_name — വിദ്യാർഥിയുടെ പേര്
+2. course_interest — ഏത് കോഴ്‌സ് (B.Tech, BCA, MBA, BAMS, B.Com...)
+3. location — കേരളത്തിലെ ഏത് ജില്ല (Thiruvananthapuram,
+   Kollam, Pathanamthitta, Alappuzha, Kottayam, Idukki,
+   Ernakulam, Thrissur, Palakkad, Malappuram, Kozhikode,
+   Wayanad, Kannur, Kasaragod)
+4. budget_range — ഫീസ് എത്ര വരെ (below_1L / 1L_to_3L /
+   3L_to_5L / above_5L)
+5. timeline — ഈ വർഷം / അടുത്ത വർഷം / ആലോചിക്കുന്നു
+
+നിയമങ്ങൾ:
+- ഒരു സമയം ഒരു ചോദ്യം മാത്രം
+- 80 വാക്കുകളിൽ കൂടാതെ ഉത്തരം നൽകുക
+- Malayalam script ഉപയോഗിക്കുക (not Manglish)
+- Natural conversation ആക്കുക, form fill ആക്കരുത്
+- Specific colleges promise ചെയ്യരുത്
+- അഡ്മിഷൻ guarantee നൽകരുത്
+- 5 കാര്യങ്ങളും ശേഖരിച്ചാൽ: summary confirm ചെയ്യുക
+- Student confirm ചെയ്‌താൽ: CONVERSATION_COMPLETE എന്ന് reply-ൽ ഉൾപ്പെടുത്തുക
+    """
+    
+    def chat(self, conversation_history: list,
+              new_message: str,
+              conversation_state: str = None) -> str:
+        
+        messages = [{'role': 'system', 'content': self.SYSTEM_PROMPT}]
+        messages.extend(conversation_history)
+        messages.append({'role': 'user', 'content': new_message})
+        
+        try:
+            response = openai.chat.completions.create(
+                model='gpt-4',
+                messages=messages,
+                max_tokens=300,
+                temperature=0.7,
+                stream=False
+            )
+            return response.choices[0].message.content.strip()
+        
+        except openai.RateLimitError:
+            # Fallback to rule-based response
+            return self._fallback_response(conversation_state)
+        
+        except openai.APIError as e:
+            logger.error(f'OpenAI API error: {e}')
+            return self._fallback_response(conversation_state)
+    
+    def extract_lead_data(self, conversation_history: list) -> dict:
+        extraction_prompt = """
+ഈ conversation നോക്കി ഈ JSON extract ചെയ്യുക:
+{
+  "full_name": "",
+  "course_interest": "",
+  "location": "",
+  "budget_range": "below_1L|1L_to_3L|3L_to_5L|above_5L",
+  "budget_display": "human readable budget string in Malayalam",
+  "timeline": "this_year|next_year|exploring",
+  "intent_level": "enroll|explore|curious"
+}
+
+Rules:
+- Return ONLY valid JSON. No other text.
+- If a field is missing use empty string
+- budget_display examples: '1 ലക്ഷം വരെ', '1-3 ലക്ഷം', '3-5 ലക്ഷം', '5 ലക്ഷത്തിൽ കൂടുതൽ'
+        """
+        
+        messages = [
+            {'role': 'system', 'content': extraction_prompt}
+        ]
+        messages.extend(conversation_history)
+        messages.append({
+            'role': 'user',
+            'content': 'Extract the lead data as JSON now.'
+        })
+        
+        try:
+            response = openai.chat.completions.create(
+                model='gpt-4',
+                messages=messages,
+                max_tokens=300,
+                temperature=0
+            )
+            raw = response.choices[0].message.content.strip()
+            raw = raw.replace('```json', '').replace('```', '').strip()
+            return json.loads(raw)
+        
+        except (json.JSONDecodeError, Exception) as e:
+            logger.error(f'Lead extraction failed: {e}')
+            return {}
+    
+    def is_conversation_complete(self,
+                                  conversation_history: list) -> bool:
+        if not conversation_history:
+            return False
+        last = conversation_history[-1].get('content', '')
+        if 'CONVERSATION_COMPLETE' in last:
+            return True
+        extracted = self.extract_lead_data(conversation_history)
+        required = ['full_name', 'course_interest', 'location',
+                    'budget_range', 'timeline']
+        return all(extracted.get(f) for f in required)
+    
+    def detect_frustration(self,
+                            conversation_history: list) -> bool:
+        if len(conversation_history) < 6:
+            return False
+        
+        frustration_keywords = [
+            'വേണ്ട', 'മടുത്തു', 'bye', 'stop', 'quit',
+            'annoying', 'useless', 'waste', 'stupid',
+            'ശരിയല്ല', 'മനസ്സിലാകുന്നില്ല'
+        ]
+        
+        last_3 = conversation_history[-3:]
+        user_msgs = [m['content'].lower()
+                     for m in last_3
+                     if m['role'] == 'user']
+        
+        return any(
+            kw in msg
+            for kw in frustration_keywords
+            for msg in user_msgs
+        )
+    
+    def get_next_state(self, history: list,
+                        current_state: str) -> str:
+        state_map = {
+            'GREETING': 'PROFILE_COLLECT',
+            'PROFILE_COLLECT': 'INTENT_QUALIFY',
+            'INTENT_QUALIFY': 'SCORING',
+            'SCORING': 'CLOSING',
+            'CLOSING': 'ENDED'
+        }
+        if len(history) < 2:
+            return current_state
+        return state_map.get(current_state, current_state)
+    
+    def _fallback_response(self,
+                            state: str = None) -> str:
+        fallbacks = {
+            'GREETING': (
+                'ക്ഷമിക്കണം, ഒരു സാങ്കേതിക പ്രശ്നം ഉണ്ടായി. '
+                'ദയവായി ഒരു നിമിഷം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കൂ.'
+            ),
+            'default': (
+                'ക്ഷമിക്കണം, ഞാൻ ഒരു നിമിഷം ലഭ്യമല്ല. '
+                'ദയവായി വീണ്ടും ശ്രമിക്കൂ. 🙏'
+            )
+        }
+        return fallbacks.get(state, fallbacks['default'])
+
+PART 3 — WHISPER SPEECH TO TEXT
+File: services/ai/whisper_stt.py
+pythonimport openai
+import httpx
+import tempfile
+import os
+from django.core.cache import cache
+
+class WhisperSTTService:
+    
+    def transcribe_from_url(self, media_url: str,
+                             language: str = 'ml') -> str:
+        """
+        Download audio from Twilio URL and transcribe.
+        Twilio requires auth to download media.
+        """
+        cache_key = f'stt:{media_url[-30:]}'
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+        
+        try:
+            # Download with Twilio auth
+            auth = (settings.TWILIO_ACCOUNT_SID,
+                    settings.TWILIO_AUTH_TOKEN)
+            response = httpx.get(media_url, auth=auth,
+                                  timeout=30)
+            response.raise_for_status()
+            
+            # Save to temp file
+            with tempfile.NamedTemporaryFile(
+                suffix='.ogg', delete=False
+            ) as tmp:
+                tmp.write(response.content)
+                tmp_path = tmp.name
+            
+            # Transcribe
+            result = self.transcribe_file(tmp_path, language)
+            os.unlink(tmp_path)
+            
+            cache.set(cache_key, result, timeout=3600)
+            return result
+        
+        except Exception as e:
+            logger.error(f'Whisper STT failed: {e}')
+            return ''
+    
+    def transcribe_file(self, file_path: str,
+                         language: str = 'ml') -> str:
+        with open(file_path, 'rb') as audio_file:
+            response = openai.audio.transcriptions.create(
+                model='whisper-1',
+                file=audio_file,
+                language=language,
+                response_format='text'
+            )
+        return response.strip()
+
+PART 4 — MALAYALAM TTS
+File: services/ai/malayalam_tts.py
+pythonimport azure.cognitiveservices.speech as speechsdk
+import tempfile
+import boto3
+import hashlib
+from django.core.cache import cache
+
+class MalayalamTTSService:
+    
+    def __init__(self):
+        self.config = speechsdk.SpeechConfig(
+            subscription=settings.AZURE_TTS_KEY,
+            region=settings.AZURE_TTS_REGION
+        )
+        self.config.speech_synthesis_voice_name = (
+            settings.AZURE_TTS_VOICE
+        )
+        self.s3 = boto3.client('s3')
+    
+    def synthesize(self, text: str) -> bytes:
+        # Cache by text hash
+        text_hash = hashlib.md5(text.encode()).hexdigest()
+        cache_key = f'tts:{text_hash}'
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+        
+        with tempfile.NamedTemporaryFile(
+            suffix='.mp3', delete=False
+        ) as tmp:
+            self.config.set_speech_synthesis_output_format(
+                speechsdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3
+            )
+            audio_config = speechsdk.audio.AudioOutputConfig(
+                filename=tmp.name
+            )
+            synthesizer = speechsdk.SpeechSynthesizer(
+                speech_config=self.config,
+                audio_config=audio_config
+            )
+            result = synthesizer.speak_text_async(text).get()
+            
+            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                with open(tmp.name, 'rb') as f:
+                    audio_bytes = f.read()
+                cache.set(cache_key, audio_bytes, timeout=86400)
+                os.unlink(tmp.name)
+                return audio_bytes
+            else:
+                raise Exception(f'TTS failed: {result.reason}')
+    
+    def synthesize_to_s3(self, text: str,
+                          filename: str = None) -> str:
+        audio_bytes = self.synthesize(text)
+        if not filename:
+            filename = f'tts/{hashlib.md5(text.encode()).hexdigest()}.mp3'
+        
+        self.s3.put_object(
+            Bucket=settings.AWS_S3_BUCKET,
+            Key=filename,
+            Body=audio_bytes,
+            ContentType='audio/mpeg',
+            ACL='public-read'
+        )
+        return f'https://{settings.AWS_S3_BUCKET}.s3.amazonaws.com/{filename}'
+
+PART 5 — TWILIO VOICE CALL PIPELINE
+File: apps/webhooks/views.py — add these views
+pythonclass TwilioVoiceInboundView(APIView):
+    """
+    Handles incoming student phone calls.
+    Twilio calls this URL when a student dials the platform number.
+    Must return TwiML XML immediately.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        from_number = request.POST.get('From', '')
+        call_sid = request.POST.get('CallSid', '')
+        
+        # Store call session in Redis
+        redis_client.setex(
+            f'call_session:{call_sid}',
+            3600,
+            json.dumps({
+                'from_number': from_number,
+                'state': 'GREETING',
+                'history': []
+            })
+        )
+        
+        # Generate greeting TwiML with TTS
+        tts = MalayalamTTSService()
+        greeting_text = (
+            'നമസ്കാരം! EduLeads Kerala-ൽ സ്വാഗതം. '
+            'ഞാൻ Mitra. നിങ്ങളുടെ കോളേജ് അഡ്മിഷൻ '
+            'കാര്യങ്ങളിൽ സഹായിക്കാൻ ഞാൻ ഇവിടെ ഉണ്ട്. '
+            'ദയവായി സംസാരിക്കൂ.'
+        )
+        audio_url = tts.synthesize_to_s3(
+            greeting_text,
+            f'voice/greeting_{call_sid}.mp3'
+        )
+        
+        twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{audio_url}</Play>
+    <Record
+        action="/api/webhooks/twilio/voice/recording/"
+        method="POST"
+        maxLength="30"
+        playBeep="false"
+        trim="trim-silence"
+        transcribe="false"
+    />
+</Response>'''
+        
+        return HttpResponse(twiml, content_type='text/xml')
+
+
+class TwilioVoiceRecordingView(APIView):
+    """
+    Receives each student voice recording,
+    transcribes it, gets GPT response, plays back TTS.
+    This is the conversation loop.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        call_sid = request.POST.get('CallSid', '')
+        recording_url = request.POST.get('RecordingUrl', '')
+        
+        # Process async — return TwiML to keep call alive
+        process_voice_turn.delay(call_sid, recording_url)
+        
+        # Return TwiML that waits while processing
+        twiml = '''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Pause length="3"/>
+    <Redirect method="POST">
+        /api/webhooks/twilio/voice/response/
+    </Redirect>
+</Response>'''
+        
+        return HttpResponse(twiml, content_type='text/xml')
+
+
+class TwilioVoiceResponseView(APIView):
+    """
+    Polls Redis for the AI response and plays it back.
+    """
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        call_sid = request.POST.get('CallSid', '')
+        
+        response_key = f'voice_response:{call_sid}'
+        response_data_raw = redis_client.get(response_key)
+        
+        if not response_data_raw:
+            # Still processing — wait more
+            twiml = '''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Pause length="2"/>
+    <Redirect method="POST">
+        /api/webhooks/twilio/voice/response/
+    </Redirect>
+</Response>'''
+            return HttpResponse(twiml, content_type='text/xml')
+        
+        response_data = json.loads(response_data_raw)
+        redis_client.delete(response_key)
+        
+        if response_data.get('complete'):
+            twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{response_data["audio_url"]}</Play>
+    <Pause length="2"/>
+    <Hangup/>
+</Response>'''
+        else:
+            twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{response_data["audio_url"]}</Play>
+    <Record
+        action="/api/webhooks/twilio/voice/recording/"
+        method="POST"
+        maxLength="30"
+        playBeep="false"
+        trim="trim-silence"
+    />
+</Response>'''
+        
+        return HttpResponse(twiml, content_type='text/xml')
+File: tasks/ai_tasks.py — add voice processing task
+python@celery_app.task
+def process_voice_turn(call_sid: str, recording_url: str):
+    """
+    1. Download and transcribe recording with Whisper
+    2. Load session from Redis
+    3. Get GPT response
+    4. Generate TTS audio
+    5. Upload to S3
+    6. Store audio URL in Redis for response view to pick up
+    7. Check if conversation complete
+    """
+    stt = WhisperSTTService()
+    gpt = GPTCounsellorService()
+    tts = MalayalamTTSService()
+    
+    # Get session
+    session_raw = redis_client.get(f'call_session:{call_sid}')
+    if not session_raw:
+        return
+    session = json.loads(session_raw)
+    
+    # Transcribe
+    transcript = stt.transcribe_from_url(
+        recording_url + '.mp3', language='ml'
+    )
+    
+    if not transcript:
+        audio_url = tts.synthesize_to_s3(
+            'ക്ഷമിക്കണം, മനസ്സിലായില്ല. '
+            'ഒന്നുകൂടി പറയാമോ?',
+            f'voice/retry_{call_sid}.mp3'
+        )
+        redis_client.setex(
+            f'voice_response:{call_sid}',
+            60,
+            json.dumps({'audio_url': audio_url, 'complete': False})
+        )
+        return
+    
+    # Get GPT response
+    history = session.get('history', [])
+    history.append({'role': 'user', 'content': transcript})
+    
+    response_text = gpt.chat(
+        conversation_history=history[:-1],
+        new_message=transcript,
+        conversation_state=session.get('state')
+    )
+    history.append({'role': 'assistant', 'content': response_text})
+    
+    # Check complete
+    is_complete = gpt.is_conversation_complete(history)
+    
+    if is_complete:
+        lead_data = gpt.extract_lead_data(history)
+        lead_data['source_channel'] = 'phone'
+        lead_data['call_sid'] = call_sid
+        from tasks.lead_tasks import create_score_and_allocate_lead
+        create_score_and_allocate_lead.delay(lead_data)
+        
+        closing = (
+            response_text + ' നന്ദി! ഞങ്ങൾ ഉടൻ ബന്ധപ്പെടും. 🙏'
+        )
+        audio_url = tts.synthesize_to_s3(
+            closing, f'voice/closing_{call_sid}.mp3'
+        )
+        redis_client.setex(
+            f'voice_response:{call_sid}',
+            60,
+            json.dumps({'audio_url': audio_url, 'complete': True})
+        )
+    else:
+        audio_url = tts.synthesize_to_s3(
+            response_text,
+            f'voice/response_{call_sid}.mp3'
+        )
+        session['history'] = history[-20:]
+        session['state'] = gpt.get_next_state(
+            history, session.get('state', 'GREETING')
+        )
+        redis_client.setex(
+            f'call_session:{call_sid}',
+            3600,
+            json.dumps(session)
+        )
+        redis_client.setex(
+            f'voice_response:{call_sid}',
+            60,
+            json.dumps({'audio_url': audio_url, 'complete': False})
+        )
+
+PART 6 — MASKED CALLING (COLLEGE TO STUDENT)
+This is the controlled communication system. Colleges call students
+through the platform without ever receiving the student's real number.
+File: services/communications/masked_calling.py
+pythonfrom twilio.rest import Client as TwilioClient
+from apps.leads.models import Lead, LeadAllocation
+from apps.users.models import User
+from apps.tenants.models import Tenant
+
+class MaskedCallingService:
+    
+    def __init__(self):
+        self.twilio = TwilioClient(
+            settings.TWILIO_ACCOUNT_SID,
+            settings.TWILIO_AUTH_TOKEN
+        )
+    
+    def initiate_masked_call(self, college_user_id: str,
+                              lead_id: str) -> dict:
+        """
+        College clicks 'Call via Platform'.
+        Steps:
+        1. Check plan — Pro or Premium required
+        2. Verify this college has this lead allocated to them
+        3. Get college user's phone number
+        4. Get student's real phone (decrypt from DB)
+        5. Store mapping in Redis
+        6. Call college user first
+        7. When college answers, bridge to student
+        8. Record the call
+        9. Log to audit_logs
+        Never expose student number to college at any point.
+        """
+        
+        user = User.objects.get(id=college_user_id)
+        tenant = user.tenant
+        
+        # Plan check
+        if tenant.plan not in ['pro', 'premium']:
+            raise PermissionError(
+                'Masked calling requires Pro or Premium plan'
+            )
+        
+        # Verify allocation
+        allocation = LeadAllocation.objects.filter(
+            lead_id=lead_id,
+            tenant=tenant
+        ).first()
+        if not allocation:
+            raise PermissionError(
+                'This lead is not allocated to your account'
+            )
+        
+        # Get lead and student
+        lead = Lead.objects.select_related('student').get(id=lead_id)
+        student_phone = lead.student.phone_encrypted
+        college_phone = user.phone_number
+        
+        if not college_phone:
+            raise ValueError(
+                'Please add your phone number in Settings '
+                'before using masked calling'
+            )
+        
+        # Store mapping in Redis (TTL: 1 hour)
+        mapping_key = f'masked_call:{college_user_id}:{lead_id}'
+        redis_client.setex(
+            mapping_key,
+            3600,
+            json.dumps({
+                'student_phone': student_phone,
+                'college_phone': college_phone,
+                'lead_id': lead_id,
+                'college_user_id': college_user_id,
+                'tenant_id': str(tenant.id)
+            })
+        )
+        
+        # Initiate call TO the college user first
+        call = self.twilio.calls.create(
+            to=college_phone,
+            from_=settings.TWILIO_VOICE_NUMBER,
+            url=f'{settings.BACKEND_URL}/api/webhooks/twilio/masked-call-college/?key={mapping_key}',
+            status_callback=f'{settings.BACKEND_URL}/api/webhooks/twilio/call-status/',
+            status_callback_method='POST',
+            record=True,
+            recording_status_callback=f'{settings.BACKEND_URL}/api/webhooks/twilio/recording-complete/'
+        )
+        
+        # Save call record
+        from apps.communications.models import CallRecord
+        call_record = CallRecord.objects.create(
+            lead=lead,
+            tenant=tenant,
+            initiated_by=user,
+            twilio_call_sid=call.sid,
+            call_type='masked_outbound',
+            status='initiated'
+        )
+        
+        # Audit log
+        AuditLogger.log(
+            actor=str(user.id),
+            action='initiated_masked_call',
+            resource_type='lead',
+            resource_id=lead_id,
+            ip_address='api'
+        )
+        
+        return {
+            'call_sid': call.sid,
+            'call_record_id': str(call_record.id),
+            'message': (
+                'Connecting call. Your phone will ring shortly. '
+                'The student will not see your number.'
+            )
+        }
+    
+    def handle_college_answers(self, mapping_key: str) -> str:
+        """
+        TwiML webhook — college has answered.
+        Now bridge to student.
+        Return TwiML to connect the call.
+        """
+        mapping_raw = redis_client.get(mapping_key)
+        if not mapping_raw:
+            return '''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say language="ml-IN">
+        ക്ഷമിക്കണം, ഒരു പ്രശ്നം ഉണ്ടായി.
+    </Say>
+    <Hangup/>
+</Response>'''
+        
+        mapping = json.loads(mapping_raw)
+        student_phone = mapping['student_phone']
+        
+        # Play a brief notice to college before connecting
+        twiml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say language="en-IN" voice="Polly.Aditi">
+        Connecting you to the student now.
+        This call is being recorded for quality purposes.
+    </Say>
+    <Dial
+        callerId="{settings.TWILIO_VOICE_NUMBER}"
+        record="record-from-answer"
+        recordingStatusCallback="{settings.BACKEND_URL}/api/webhooks/twilio/recording-complete/"
+        timeout="30"
+        action="{settings.BACKEND_URL}/api/webhooks/twilio/call-ended/"
+    >
+        <Number>{student_phone}</Number>
+    </Dial>
+</Response>'''
+        
+        return twiml
+    
+    def handle_call_status(self, call_sid: str,
+                            call_status: str,
+                            duration: str = None):
+        """Update call record status. Trigger retry if failed."""
+        from apps.communications.models import CallRecord
+        try:
+            record = CallRecord.objects.get(
+                twilio_call_sid=call_sid
+            )
+            record.status = call_status
+            if duration:
+                record.duration_seconds = int(duration)
+            record.save()
+            
+            if call_status in ['failed', 'no-answer', 'busy']:
+                from tasks.lead_tasks import retry_masked_call
+                retry_masked_call.apply_async(
+                    args=[call_sid],
+                    countdown=300
+                )
+        except CallRecord.DoesNotExist:
+            pass
+    
+    def handle_recording_complete(self, call_sid: str,
+                                   recording_url: str):
+        """Save call recording to S3."""
+        import httpx, boto3
+        
+        auth = (settings.TWILIO_ACCOUNT_SID,
+                settings.TWILIO_AUTH_TOKEN)
+        response = httpx.get(
+            recording_url + '.mp3', auth=auth, timeout=60
+        )
+        
+        s3 = boto3.client('s3')
+        s3_key = f'call-recordings/{call_sid}.mp3'
+        s3.put_object(
+            Bucket=settings.AWS_S3_BUCKET,
+            Key=s3_key,
+            Body=response.content,
+            ContentType='audio/mpeg'
+        )
+        
+        from apps.communications.models import CallRecord
+        CallRecord.objects.filter(
+            twilio_call_sid=call_sid
+        ).update(recording_s3_key=s3_key)
+
+PART 7 — IN-APP WHATSAPP CHAT (COLLEGE TO STUDENT)
+For Basic plan colleges who cannot make calls.
+Messages from college go through the platform to student WhatsApp.
+Student replies come back through the platform.
+College never sees the student's WhatsApp number.
+File: apps/conversations/views.py
+pythonclass SendMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, lead_id):
+        content = request.data.get('content', '').strip()
+        if not content:
+            return Response({'error': 'Message cannot be empty'},
+                            status=400)
+        
+        # Verify this lead belongs to this tenant
+        allocation = LeadAllocation.objects.filter(
+            lead_id=lead_id,
+            tenant=request.user.tenant
+        ).first()
+        if not allocation:
+            return Response({'error': 'Lead not found'}, status=404)
+        
+        lead = Lead.objects.select_related('student').get(id=lead_id)
+        
+        # Save message in DB
+        message = Message.objects.create(
+            lead=lead,
+            sender_tenant=request.user.tenant,
+            sender_user=request.user,
+            content=content,
+            is_from_student=False,
+            channel='platform'
+        )
+        
+        # Forward to student WhatsApp
+        # Use college's display name but NEVER their number
+        whatsapp_msg = (
+            f'*{lead.tenant_display_name(request.user.tenant)}* '
+            f'നിങ്ങൾക്ക് ഒരു സന്ദേശം അയച്ചിട്ടുണ്ട്:\n\n'
+            f'{content}\n\n'
+            f'_മറുപടി നൽകാൻ ഇവിടെ ടൈപ്പ് ചെയ്യുക._'
+        )
+        
+        handler = WhatsAppHandler()
+        handler.send_message(
+            lead.student.whatsapp_number,
+            whatsapp_msg
+        )
+        
+        # Broadcast via WebSocket for real-time UI update
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'lead_{lead_id}',
+            {
+                'type': 'chat_message',
+                'message': {
+                    'id': str(message.id),
+                    'content': content,
+                    'is_from_student': False,
+                    'sender_name': request.user.full_name,
+                    'created_at': message.created_at.isoformat()
+                }
+            }
+        )
+        
+        # Audit log
+        AuditLogger.log(
+            actor=str(request.user.id),
+            action='sent_message_to_student',
+            resource_type='lead',
+            resource_id=lead_id,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+        return Response({
+            'id': str(message.id),
+            'content': content,
+            'created_at': message.created_at.isoformat()
+        })
+File: apps/conversations/consumers.py — Django Channels WebSocket
+pythonimport json
+from channels.generic.websocket import AsyncWebsocketConsumer
+from rest_framework_simplejwt.tokens import AccessToken
+from channels.db import database_sync_to_async
+
+class LeadChatConsumer(AsyncWebsocketConsumer):
+    
+    async def connect(self):
+        # Authenticate via JWT in query string
+        token = self.scope['query_string'].decode().split('token=')[-1]
+        
+        try:
+            access_token = AccessToken(token)
+            self.user_id = access_token['user_id']
+            self.tenant_id = access_token['tenant_id']
+        except Exception:
+            await self.close(code=4001)
+            return
+        
+        self.lead_id = self.scope['url_route']['kwargs']['lead_id']
+        
+        # Verify this tenant has access to this lead
+        has_access = await self.check_lead_access(
+            self.lead_id, self.tenant_id
+        )
+        if not has_access:
+            await self.close(code=4003)
+            return
+        
+        self.room_group = f'lead_{self.lead_id}'
+        await self.channel_layer.group_add(
+            self.room_group,
+            self.channel_name
+        )
+        await self.accept()
+    
+    async def disconnect(self, close_code):
+        if hasattr(self, 'room_group'):
+            await self.channel_layer.group_discard(
+                self.room_group,
+                self.channel_name
+            )
+    
+    async def receive(self, text_data):
+        # Messages sent FROM college via WebSocket
+        data = json.loads(text_data)
+        message_type = data.get('type')
+        
+        if message_type == 'ping':
+            await self.send(text_data=json.dumps({'type': 'pong'}))
+    
+    async def chat_message(self, event):
+        # Broadcast message to all connected clients for this lead
+        await self.send(text_data=json.dumps({
+            'type': 'message',
+            'message': event['message']
+        }))
+    
+    @database_sync_to_async
+    def check_lead_access(self, lead_id: str,
+                           tenant_id: str) -> bool:
+        from apps.leads.models import LeadAllocation
+        return LeadAllocation.objects.filter(
+            lead_id=lead_id,
+            tenant_id=tenant_id
+        ).exists()
+
+PART 8 — NEW WEBHOOK URLS
+Add all these to config/urls.py:
+pythonurlpatterns = [
+    # Existing urls...
+    
+    # WhatsApp
+    path('api/webhooks/twilio/whatsapp/',
+         TwilioWhatsAppWebhookView.as_view()),
+    
+    # Voice inbound (student calls platform)
+    path('api/webhooks/twilio/voice/',
+         TwilioVoiceInboundView.as_view()),
+    path('api/webhooks/twilio/voice/recording/',
+         TwilioVoiceRecordingView.as_view()),
+    path('api/webhooks/twilio/voice/response/',
+         TwilioVoiceResponseView.as_view()),
+    
+    # Masked calling (college calls student via platform)
+    path('api/webhooks/twilio/masked-call-college/',
+         MaskedCallCollegeAnswerView.as_view()),
+    path('api/webhooks/twilio/call-status/',
+         TwilioCallStatusView.as_view()),
+    path('api/webhooks/twilio/call-ended/',
+         TwilioCallEndedView.as_view()),
+    path('api/webhooks/twilio/recording-complete/',
+         TwilioRecordingCompleteView.as_view()),
+    
+    # WebSocket
+    # Add to routing.py separately for Django Channels
+]
+
+# Add Django Channels routing in config/routing.py:
+application = ProtocolTypeRouter({
+    'http': get_asgi_application(),
+    'websocket': AuthMiddlewareStack(
+        URLRouter([
+            path('ws/chat/<uuid:lead_id>/',
+                 LeadChatConsumer.as_asgi()),
+        ])
+    ),
+})
+
+PART 9 — FRONTEND: CALL BUTTON AND CHAT (React)
+Add these components to the frontend:
+MaskedCallButton component:
+jsx// Used on Lead Detail page
+// Shows different UI based on plan
+
+function MaskedCallButton({ lead, plan }) {
+  const [status, setStatus] = useState('idle')
+  // idle | calling | connected | failed
+  const [callSid, setCallSid] = useState(null)
+
+  if (plan === 'basic') {
+    return (
+      <div className="upgrade-prompt">
+        <LockIcon size={16} />
+        <span>Upgrade to Pro to call students via platform</span>
+        <button onClick={() => navigate('/dashboard/billing')}>
+          Upgrade Plan
+        </button>
+      </div>
+    )
+  }
+
+  async function initiateCall() {
+    setStatus('calling')
+    try {
+      const res = await api.post(`/leads/${lead.id}/call/`)
+      setCallSid(res.data.call_sid)
+      setStatus('connected')
+      // Poll call status every 5 seconds
+      pollCallStatus(res.data.call_sid)
+    } catch (err) {
+      setStatus('failed')
+      toast.error('Call failed. Please try again.')
+    }
+  }
+
+  function pollCallStatus(sid) {
+    const interval = setInterval(async () => {
+      const res = await api.get(`/calls/${sid}/status/`)
+      if (['completed', 'failed', 'busy',
+           'no-answer'].includes(res.data.status)) {
+        clearInterval(interval)
+        setStatus('idle')
+        if (res.data.status === 'completed') {
+          toast.success(
+            `Call completed. Duration: ${res.data.duration}s`
+          )
+        }
+      }
+    }, 5000)
+  }
+
+  return (
+    <div className="call-button-container">
+      {status === 'idle' && (
+        <button className="btn-call" onClick={initiateCall}>
+          <PhoneIcon size={16} />
+          Call via Platform
+        </button>
+      )}
+      {status === 'calling' && (
+        <div className="call-status calling">
+          <div className="pulse-ring" />
+          <PhoneIcon size={16} />
+          Connecting your phone...
+        </div>
+      )}
+      {status === 'connected' && (
+        <div className="call-status connected">
+          <div className="pulse-ring green" />
+          <PhoneIcon size={16} />
+          Call in progress
+        </div>
+      )}
+      {status === 'failed' && (
+        <button className="btn-call error" onClick={initiateCall}>
+          <PhoneIcon size={16} />
+          Retry Call
+        </button>
+      )}
+      <p className="call-disclaimer">
+        🔒 Student number stays private. 
+        Your call goes through our secure platform.
+      </p>
+    </div>
+  )
+}
+RealTimeChat component — upgrade existing chat:
+jsxfunction RealTimeChat({ leadId, plan }) {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [connected, setConnected] = useState(false)
+  const wsRef = useRef(null)
+  const bottomRef = useRef(null)
+  const { accessToken } = useAuthStore()
+
+  useEffect(() => {
+    // Load message history
+    api.get(`/leads/${leadId}/messages/`)
+      .then(res => setMessages(res.data))
+
+    // Connect WebSocket
+    const wsUrl = `${WS_BASE_URL}/ws/chat/${leadId}/?token=${accessToken}`
+    wsRef.current = new WebSocket(wsUrl)
+
+    wsRef.current.onopen = () => {
+      setConnected(true)
+      // Keep alive ping every 30 seconds
+      setInterval(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'ping' }))
+        }
+      }, 30000)
+    }
+
+    wsRef.current.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      if (data.type === 'message') {
+        setMessages(prev => [...prev, data.message])
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+
+    wsRef.current.onclose = () => {
+      setConnected(false)
+      // Reconnect after 3 seconds
+      setTimeout(() => {
+        // Re-initialize WebSocket
+      }, 3000)
+    }
+
+    return () => wsRef.current?.close()
+  }, [leadId])
+
+  async function sendMessage() {
+    if (!input.trim() || sending) return
+    setSending(true)
+    try {
+      await api.post(`/leads/${leadId}/messages/`,
+        { content: input }
+      )
+      setInput('')
+    } catch {
+      toast.error('Failed to send message')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="chat-container">
+      <div className="chat-header">
+        <span>Conversation</span>
+        <div className={`ws-status ${connected ? 'online' : 'offline'}`}>
+          <div className="status-dot" />
+          {connected ? 'Live' : 'Reconnecting...'}
+        </div>
+      </div>
+
+      <div className="messages-area">
+        {messages.map(msg => (
+          <div key={msg.id}
+               className={`bubble ${msg.is_from_student
+                 ? 'student' : 'college'}`}>
+            <p>{msg.content}</p>
+            <span className="time">
+              {formatRelativeTime(msg.created_at)}
+            </span>
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-area">
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              sendMessage()
+            }
+          }}
+          placeholder="Type a message... (Enter to send)"
+          rows={1}
+        />
+        <button
+          onClick={sendMessage}
+          disabled={!input.trim() || sending}
+          className="send-btn">
+          {sending
+            ? <Spinner size={16} />
+            : <SendIcon size={16} />
+          }
+        </button>
+      </div>
+    </div>
+  )
+}
+
+PART 10 — TWILIO CONFIGURATION INSTRUCTIONS
+After building all the above, print these configuration steps:
+TWILIO SETUP REQUIRED:
+
+1. WhatsApp Sandbox (for testing):
+   Console → Messaging → Try it out → WhatsApp
+   Set webhook URL:
+   POST https://your-app.replit.app/api/webhooks/twilio/whatsapp/
+
+2. WhatsApp Business (for production):
+   Apply for WABA at twilio.com/whatsapp
+   Same webhook URL as above
+
+3. Voice number webhook:
+   Console → Phone Numbers → your number → Voice
+   Incoming calls webhook:
+   POST https://your-app.replit.app/api/webhooks/twilio/voice/
+
+4. Status callback (automatic on all calls):
+   POST https://your-app.replit.app/api/webhooks/twilio/call-status/
+
+5. Add to .env:
+   BACKEND_URL=https://your-app.replit.app
+
+PART 11 — INSTALL REQUIREMENTS
+Add these to requirements.txt if not already present:
+twilio>=8.0.0
+openai>=1.0.0
+azure-cognitiveservices-speech>=1.30.0
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
+httpx>=0.25.0
+boto3>=1.28.0
+redis>=5.0.0
+celery>=5.3.0
+django-redis>=5.4.0
+Switch Django from WSGI to ASGI for WebSocket support.
+Replace manage.py runserver with daphne:
+daphne -b 0.0.0.0 -p 8000 config.asgi:application
+Update config/asgi.py for Django Channels.
+
+Build all 11 parts completely now.
+After building, show me:
+
+The complete list of webhook URLs to configure in Twilio
+The complete list of new API endpoints added
+Confirmation that WebSocket routing is configured
+Any environment variables that need to be added

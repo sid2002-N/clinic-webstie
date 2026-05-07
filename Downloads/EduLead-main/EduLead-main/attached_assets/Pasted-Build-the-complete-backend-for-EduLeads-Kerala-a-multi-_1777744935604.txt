@@ -1,0 +1,563 @@
+Build the complete backend for EduLeads Kerala — a multi-tenant SaaS platform connecting Kerala students with colleges via an AI Malayalam counsellor. This is the backend and AI pipeline only. The React frontend is built separately in Lovable and connects to this backend via REST API and webhooks.
+
+TECH STACK
+
+Language: Python 3.11
+Framework: Django 4.2 + Django REST Framework
+Database: PostgreSQL (connect to Supabase PostgreSQL using the connection string)
+Cache / Queue broker: Redis
+Async tasks: Celery + Celery Beat
+AI: OpenAI GPT-4 API
+Speech to text: OpenAI Whisper API
+Text to speech: Azure Cognitive Services (Malayalam voice)
+Telephony: Twilio (voice calls + WhatsApp Business API)
+Payments: Stripe webhooks
+Storage: AWS S3 (call recordings, exports)
+Auth: JWT tokens (djangorestframework-simplejwt)
+
+
+PROJECT STRUCTURE
+Create this folder structure:
+edulead_backend/
+├── config/
+│   ├── settings.py
+│   ├── urls.py
+│   └── celery.py
+├── apps/
+│   ├── tenants/
+│   ├── users/
+│   ├── students/
+│   ├── leads/
+│   ├── conversations/
+│   ├── communications/
+│   ├── subscriptions/
+│   ├── webhooks/
+│   └── analytics/
+├── services/
+│   ├── ai/
+│   │   ├── whisper_stt.py
+│   │   ├── gpt_counsellor.py
+│   │   ├── malayalam_tts.py
+│   │   └── intent_extractor.py
+│   ├── leads/
+│   │   ├── scoring.py
+│   │   └── allocation.py
+│   ├── communications/
+│   │   ├── masked_calling.py
+│   │   └── whatsapp.py
+│   └── billing/
+│       └── stripe_service.py
+├── tasks/
+│   ├── lead_tasks.py
+│   ├── ai_tasks.py
+│   └── billing_tasks.py
+└── requirements.txt
+
+ENVIRONMENT VARIABLES
+Create a .env file with these variables (use placeholder values):
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://localhost:6379
+SECRET_KEY=your-django-secret-key
+DEBUG=False
+
+OPENAI_API_KEY=sk-...
+AZURE_TTS_KEY=...
+AZURE_TTS_REGION=eastus
+AZURE_TTS_VOICE=ml-IN-MidhunNeural
+
+TWILIO_ACCOUNT_SID=AC...
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_NUMBER=whatsapp:+91...
+TWILIO_VOICE_NUMBER=+91...
+
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_BASIC_PRICE_ID=price_...
+STRIPE_PRO_PRICE_ID=price_...
+STRIPE_PREMIUM_PRICE_ID=price_...
+
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_S3_BUCKET=edulead-recordings
+
+FRONTEND_URL=https://your-lovable-app.com
+
+MODULE 1 — LEAD SCORING SERVICE
+File: services/leads/scoring.py
+Build a complete LeadScoringService class:
+pythonclass LeadScoringService:
+
+    WEIGHTS = {
+        'intent': {'enroll': 30, 'explore': 15, 'curious': 5},
+        'course_clarity': {'specific': 20, 'vague': 10, 'empty': 0},
+        'budget': {'confirmed': 20, 'range': 10, 'unknown': 0},
+        'timeline': {'this_year': 15, 'next_year': 8, 'exploring': 2},
+        'completeness': {'full': 15, 'partial': 8, 'minimal': 2}
+    }
+
+    def compute(self, lead_data: dict) -> dict:
+        # implement full scoring
+        # return {'score': int, 'category': 'hot'|'warm'|'cold',
+        #         'dimension_scores': {...}}
+
+    def categorise(self, score: int) -> str:
+        if score >= 70: return 'hot'
+        if score >= 40: return 'warm'
+        return 'cold'
+
+    def decay_score(self, lead, days_inactive: int) -> int:
+        # reduce score by 2 points per day inactive, minimum 0
+
+MODULE 2 — LEAD ALLOCATION SERVICE
+File: services/leads/allocation.py
+Build a LeadAllocationService class with these methods:
+pythonclass LeadAllocationService:
+
+    def allocate(self, lead_id: str) -> list:
+        """
+        Main allocation method. Called after a lead is scored.
+        Steps:
+        1. Load lead from DB
+        2. Get all eligible tenants (active subscription, quota remaining)
+        3. Filter by course/location match
+        4. Sort by priority: colleges > agencies,
+           premium > pro > basic, least quota used first
+        5. Allocate to tenants up to lead.exclusivity_cap
+        6. For each allocation: create LeadAllocation record,
+           decrement quota, send notification
+        7. Return list of tenant_ids that received the lead
+        """
+
+    def check_quota(self, tenant_id: str) -> dict:
+        """
+        Returns {'remaining': int, 'used': int,
+                 'monthly': int, 'rollover': int}
+        Uses Redis for fast checking with DB fallback
+        """
+
+    def get_exclusivity_cap(self, plan: str) -> int:
+        caps = {'premium': 1, 'pro': 3, 'basic': 5}
+        return caps.get(plan, 5)
+
+    def rollover_unused_quota(self, tenant_id: str):
+        """
+        Called by Celery beat at end of billing cycle.
+        Carries unused quota forward, capped at 50% of monthly quota.
+        """
+
+    def handle_low_supply(self, lead_id: str):
+        """
+        When hot leads are insufficient:
+        1. Premium clients get remaining hot leads
+        2. Fill remaining slots with warm leads for pro/basic
+        3. Send notification to lower-tier clients about reduced availability
+        """
+
+MODULE 3 — WHATSAPP AI COUNSELLOR
+File: services/communications/whatsapp.py and services/ai/gpt_counsellor.py
+Build a complete WhatsApp intake flow:
+WhatsAppHandler class:
+pythonclass WhatsAppHandler:
+
+    def handle_incoming(self, from_number: str, message_body: str,
+                         media_url: str = None):
+        """
+        1. Validate Twilio HMAC signature (always do this first)
+        2. Find or create Student record for this number
+        3. Find or create active Conversation for this student
+        4. Check if consent has been given — if not, send consent message first
+        5. Load conversation history from Redis
+        6. Pass message to GPT counsellor
+        7. Save GPT response to conversation history
+        8. Send response back via Twilio WhatsApp API
+        9. Check if conversation is complete — if yes, trigger lead creation
+        """
+
+    def send_message(self, to_number: str, message: str):
+        """Send WhatsApp message via Twilio"""
+
+    def send_consent_message(self, to_number: str):
+        """
+        Send this exact message in Malayalam:
+        'നമസ്കാരം! ഞാൻ EduLeads Kerala-യുടെ AI കൗൺസലർ ആണ്.
+        നിങ്ങളുടെ കോളേജ് അഡ്മിഷൻ കാര്യങ്ങളിൽ സഹായിക്കാൻ ഞാൻ ഇവിടെ ഉണ്ട്.
+        തുടരുന്നതിന് മുൻപ്, നിങ്ങളുടെ വിവരങ്ങൾ യോഗ്യരായ കോളേജുകളുമായി
+        പങ്കുവെക്കുന്നതിന് സമ്മതമുണ്ടോ? YES അല്ലെങ്കിൽ NO എന്ന് മറുപടി നൽകുക.'
+        """
+GPTCounsellorService class:
+pythonclass GPTCounsellorService:
+
+    SYSTEM_PROMPT = """
+    You are an academic counsellor for Kerala students named 'Mitra'.
+    You speak Malayalam naturally and warmly.
+    Your goal is to understand the student's college admission needs by asking
+    about: their preferred course, location preference within Kerala,
+    budget range, intended year of admission, and how serious they are
+    about enrolling this year.
+    Ask ONE question at a time. Be conversational, not like a form.
+    After collecting all information, summarise what you understood and
+    ask for confirmation.
+    Do NOT mention specific colleges. Do NOT make promises about admissions.
+    Keep responses under 100 words. Always respond in Malayalam.
+    """
+
+    def chat(self, conversation_history: list,
+             new_message: str) -> str:
+        """
+        Call GPT-4 with system prompt + conversation history.
+        Use streaming for lower latency.
+        Return the complete response text.
+        """
+
+    def extract_lead_data(self, conversation_history: list) -> dict:
+        """
+        After conversation is complete, call GPT-4 with this prompt:
+        'Based on this conversation, extract: full_name, course_interest,
+        location, budget_range, timeline, intent_level.
+        Return as valid JSON only, no other text.'
+        Parse and return the JSON.
+        """
+
+    def is_conversation_complete(self,
+                                  conversation_history: list) -> bool:
+        """
+        Return True if all 5 required fields have been collected:
+        course, location, budget, timeline, intent
+        Use GPT-4 to check or use keyword matching as fallback
+        """
+
+    def detect_frustration(self,
+                            conversation_history: list) -> bool:
+        """
+        Return True if student seems frustrated or conversation
+        is going in circles. Trigger human handoff if True.
+        """
+
+MODULE 4 — VOICE CALL PIPELINE
+File: services/ai/whisper_stt.py, services/ai/malayalam_tts.py
+WhisperSTTService:
+pythonclass WhisperSTTService:
+
+    def transcribe_audio(self, audio_file_path: str,
+                         language: str = 'ml') -> str:
+        """
+        Call OpenAI Whisper API with Malayalam language hint.
+        Return transcribed text.
+        Target: under 800ms for 5-second audio chunks.
+        """
+
+    def transcribe_stream(self, audio_chunk: bytes) -> str:
+        """
+        For real-time streaming transcription during live call.
+        Buffer chunks, transcribe when silence detected.
+        """
+MalayalamTTSService:
+pythonclass MalayalamTTSService:
+
+    def synthesize(self, text: str) -> bytes:
+        """
+        Call Azure Cognitive Services TTS.
+        Voice: ml-IN-MidhunNeural (male) or ml-IN-SobhanaNeural (female)
+        Return audio bytes in MP3 format.
+        Cache responses in Redis for repeated phrases.
+        """
+
+    def synthesize_to_file(self, text: str,
+                            output_path: str) -> str:
+        """Save synthesized audio to S3, return URL"""
+
+MODULE 5 — MASKED CALLING
+File: services/communications/masked_calling.py
+pythonclass MaskedCallingService:
+
+    def create_call_bridge(self, college_user_id: str,
+                            lead_id: str) -> dict:
+        """
+        1. Check tenant plan — masked calling requires Pro or Premium
+        2. Look up real student phone from encrypted field
+        3. Generate or reuse a Twilio virtual number for this pair
+        4. Store mapping: virtual_number → (college_phone, student_phone)
+           in Redis with 24h TTL
+        5. Initiate Twilio call to college_user's phone
+        6. When college answers, bridge to student's real number
+        7. Record the call and store in S3
+        8. Log to audit_logs: 'initiated_masked_call'
+        Return: {'virtual_number': str, 'call_sid': str}
+        """
+
+    def handle_call_status_webhook(self, call_sid: str,
+                                    call_status: str):
+        """
+        Handle Twilio status callbacks.
+        Update call record status.
+        If call failed: trigger retry logic.
+        """
+
+    def retry_call(self, call_sid: str, attempt: int = 1):
+        """
+        Retry failed calls with exponential backoff.
+        Max 3 attempts: 5min, 15min, 60min delays.
+        After 3 failures: notify college via in-app message.
+        """
+
+MODULE 6 — CELERY TASKS
+File: tasks/lead_tasks.py and tasks/ai_tasks.py
+Build these Celery tasks:
+python# tasks/lead_tasks.py
+
+@celery_app.task(bind=True, max_retries=3)
+def score_and_allocate_lead(self, lead_id: str):
+    """Score a lead then immediately allocate it. Main pipeline task."""
+
+@celery_app.task
+def decay_lead_scores():
+    """Celery beat task. Run nightly at 2am IST.
+    Reduce score by 2 for every lead with no activity in 24h."""
+
+@celery_app.task
+def expire_old_leads():
+    """Celery beat task. Run daily.
+    Mark leads older than 90 days as expired."""
+
+@celery_app.task
+def rollover_monthly_quotas():
+    """Celery beat task. Run on 1st of each month at midnight.
+    Calculate rollover for all tenants."""
+
+@celery_app.task
+def send_quota_warning(tenant_id: str, percentage: int):
+    """Send in-app + email notification when quota hits 80% or 100%."""
+
+@celery_app.task(bind=True, max_retries=3)
+def retry_masked_call(self, call_sid: str, attempt: int):
+    """Retry failed Twilio call with exponential backoff."""
+
+# tasks/ai_tasks.py
+
+@celery_app.task
+def process_whatsapp_message(from_number: str, message: str):
+    """Async task for each incoming WhatsApp message."""
+
+@celery_app.task
+def trigger_human_handoff(conversation_id: str, reason: str):
+    """Move conversation to human agent queue. Send alert to admin."""
+
+@celery_app.task
+def process_completed_conversation(conversation_id: str):
+    """When conversation is complete: extract data, create lead,
+    score it, allocate it."""
+
+MODULE 7 — REST API ENDPOINTS
+Build complete DRF ViewSets and URLs:
+Webhooks (no auth required, signature verification only):
+
+POST /api/webhooks/twilio/whatsapp/ — incoming WhatsApp messages
+POST /api/webhooks/twilio/voice/ — incoming voice calls
+POST /api/webhooks/twilio/call-status/ — call status callbacks
+POST /api/webhooks/stripe/ — Stripe payment events
+
+Auth:
+
+POST /api/auth/login/ — returns JWT access + refresh token
+POST /api/auth/refresh/ — refresh access token
+POST /api/auth/logout/ — blacklist refresh token
+
+Leads (JWT required):
+
+GET /api/leads/ — list leads for current tenant (filtered by RLS)
+GET /api/leads/{id}/ — lead detail (fields masked by plan)
+PATCH /api/leads/{id}/status/ — update lead status
+POST /api/leads/{id}/note/ — add note to lead
+GET /api/leads/{id}/reveal-phone/ — reveal phone (premium only, logged)
+POST /api/leads/{id}/call/ — initiate masked call (pro/premium only)
+GET /api/leads/export/ — CSV export (premium only)
+
+Messages (JWT required):
+
+GET /api/leads/{id}/messages/ — get message history
+POST /api/leads/{id}/messages/ — send message
+
+Subscriptions (JWT required):
+
+GET /api/subscriptions/current/ — current plan and quota
+GET /api/subscriptions/usage/ — monthly usage stats
+POST /api/subscriptions/checkout/ — create Stripe checkout session
+POST /api/subscriptions/portal/ — create Stripe billing portal session
+
+Analytics (JWT required):
+
+GET /api/analytics/dashboard/ — overview stats for current tenant
+GET /api/analytics/leads/ — lead funnel stats
+GET /api/analytics/quota-history/ — monthly quota history
+
+Admin only (superadmin JWT required):
+
+GET /api/admin/tenants/ — all tenants
+PATCH /api/admin/tenants/{id}/ — update tenant plan manually
+GET /api/admin/leads/ — all leads in system
+POST /api/admin/leads/ — manually create lead
+POST /api/admin/leads/{id}/allocate/ — manually allocate lead
+GET /api/admin/analytics/ — platform-wide analytics
+
+
+MODULE 8 — PERMISSION CLASSES
+Build these DRF permission classes:
+pythonclass IsSuperAdmin(BasePermission):
+    """Allow only users with role='superadmin'"""
+
+class IsTenantAdmin(BasePermission):
+    """Allow college_admin and agency_admin"""
+
+class PlanPermission(BasePermission):
+    """
+    Check if tenant's plan allows the requested action.
+    Usage: PlanPermission.require('premium') on a view
+    """
+
+class PhoneRevealPermission(BasePermission):
+    """Only premium plan can reveal phone numbers"""
+
+class ExportPermission(BasePermission):
+    """Only premium plan can export CSV"""
+
+class MaskedCallPermission(BasePermission):
+    """Only pro and premium plan can initiate masked calls"""
+
+class SameTenantPermission(BasePermission):
+    """User can only access resources belonging to their tenant"""
+
+MODULE 9 — STRIPE BILLING
+File: services/billing/stripe_service.py
+pythonclass StripeService:
+
+    PLAN_PRICE_MAP = {
+        'basic': settings.STRIPE_BASIC_PRICE_ID,
+        'pro': settings.STRIPE_PRO_PRICE_ID,
+        'premium': settings.STRIPE_PREMIUM_PRICE_ID,
+    }
+
+    QUOTA_MAP = {
+        'basic': 10,
+        'pro': 30,
+        'premium': 100
+    }
+
+    def create_checkout_session(self, tenant_id: str,
+                                 plan: str, success_url: str,
+                                 cancel_url: str) -> str:
+        """Create Stripe checkout session. Return checkout URL."""
+
+    def create_billing_portal_session(self, tenant_id: str,
+                                       return_url: str) -> str:
+        """Create Stripe billing portal session for self-service."""
+
+    def handle_subscription_created(self, event: dict):
+        """Update tenant plan and quota on successful payment."""
+
+    def handle_subscription_updated(self, event: dict):
+        """Handle plan upgrade/downgrade."""
+
+    def handle_subscription_deleted(self, event: dict):
+        """Downgrade tenant to basic plan on cancellation."""
+
+    def handle_payment_failed(self, event: dict):
+        """Send payment failure notification. Grace period: 3 days."""
+
+MODULE 10 — RATE LIMITING AND ABUSE PREVENTION
+Implement using Django middleware + Redis:
+python# Apply these rate limits:
+# - Webhook endpoints: 1000 requests/minute per phone number
+# - Auth login: 10 requests/minute per IP
+# - Lead reveal phone: 50 requests/hour per tenant
+# - Masked call initiate: 20 calls/hour per tenant
+# - API general: 300 requests/minute per JWT token
+
+class RateLimitMiddleware:
+    """
+    Redis sliding window rate limiter.
+    On limit exceeded: return 429 with Retry-After header.
+    After 5 failed auth attempts from same IP: block for 30 minutes.
+    """
+
+class WebhookSignatureMiddleware:
+    """
+    Validate Twilio X-Twilio-Signature on all /api/webhooks/twilio/ routes.
+    Validate Stripe-Signature on /api/webhooks/stripe/.
+    Return 403 immediately if signature invalid.
+    """
+
+MODULE 11 — COMPLIANCE AND DATA LIFECYCLE
+pythonclass ConsentService:
+    def record_consent(self, student_id: str, channel: str,
+                        ip_address: str):
+        """Record explicit consent with timestamp. Required before
+        any data collection."""
+
+    def check_consent(self, student_id: str) -> bool:
+        """Return False if no valid consent — block data processing."""
+
+
+class GDPRService:
+    def delete_student_data(self, student_id: str):
+        """
+        Right to erasure:
+        1. Null out phone_encrypted
+        2. Replace name with 'Deleted User'
+        3. Set deleted_at timestamp
+        4. Keep lead record with anonymised data for analytics
+        5. Delete conversation transcripts
+        6. Log deletion in audit_log
+        """
+
+    def export_student_data(self, student_id: str) -> dict:
+        """Right to access — return all data held about student."""
+
+
+class DataRetentionService:
+    """
+    Celery beat monthly job:
+    - Delete raw transcripts older than 12 months
+    - Delete call recordings older than 6 months
+    - Anonymise leads older than 24 months
+    - Keep aggregated analytics forever
+    """
+
+CELERY BEAT SCHEDULE
+Configure in config/celery.py:
+pythonCELERY_BEAT_SCHEDULE = {
+    'decay-lead-scores': {
+        'task': 'tasks.lead_tasks.decay_lead_scores',
+        'schedule': crontab(hour=2, minute=0),  # 2am IST daily
+    },
+    'expire-old-leads': {
+        'task': 'tasks.lead_tasks.expire_old_leads',
+        'schedule': crontab(hour=3, minute=0),  # 3am IST daily
+    },
+    'rollover-monthly-quotas': {
+        'task': 'tasks.lead_tasks.rollover_monthly_quotas',
+        'schedule': crontab(day_of_month=1, hour=0, minute=0),
+    },
+    'data-retention-cleanup': {
+        'task': 'tasks.lead_tasks.run_data_retention',
+        'schedule': crontab(day_of_month=1, hour=1, minute=0),
+    },
+}
+
+CORS AND FRONTEND CONNECTION
+
+Allow CORS from the Lovable frontend URL
+All API responses in JSON
+JWT access token expiry: 60 minutes
+JWT refresh token expiry: 30 days
+Include tenant_id in every JWT payload
+Include plan and role in every JWT payload so frontend can gate UI without extra API call
+
+
+FIRST THING TO RUN
+Create a management command: python manage.py setup_platform
+This should:
+
+Run all migrations
+Create a superadmin user (email: admin@edulead.in, password: from env var)
+Create three Stripe products and prices if they don't exist
+Print all API endpoints to console

@@ -1,0 +1,8 @@
+[2m10:29:12 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
+Error: EPERM: operation not permitted, rename 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps_temp_83b83094' -> 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps'[39m
+[2m10:34:40 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
+Error: EPERM: operation not permitted, rename 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps_temp_39c4ee94' -> 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps'[39m
+[2m10:35:25 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
+Error: EPERM: operation not permitted, rename 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps_temp_748efd46' -> 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps'[39m
+[2m10:43:56 PM[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m [31merror while updating dependencies:
+Error: EPERM: operation not permitted, rename 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps' -> 'C:\Users\siddh\Downloads\EduLead-main\EduLead-main\artifacts\edulead-frontend\node_modules\.vite\deps_temp_fc280eee'[39m

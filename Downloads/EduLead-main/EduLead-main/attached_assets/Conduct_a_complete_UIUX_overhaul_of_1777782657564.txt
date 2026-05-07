@@ -1,0 +1,1258 @@
+Conduct a complete UI/UX overhaul of the entire frontend. Do not touch any API calls, WebSocket logic, business logic, or routing. Only improve visual design, layout, spacing, typography, animations, and component quality. Apply every instruction below across every single page and component in the project.
+
+STEP 1 — DESIGN TOKENS
+Create a new file frontend/src/styles/tokens.css and paste exactly this. Import it at the top of main.css or index.css before everything else:
+css@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+
+  /* Brand */
+  --brand-950: #080f1a;
+  --brand-900: #0f2137;
+  --brand-800: #1E3A5F;
+  --brand-700: #254d7a;
+  --brand-600: #2e6096;
+  --brand-500: #3b76b5;
+  --brand-400: #5a93c8;
+  --brand-200: #a8c8e8;
+  --brand-100: #d4e4f4;
+  --brand-50:  #edf4fb;
+
+  /* Kerala green accent */
+  --green-900: #0f2d1c;
+  --green-800: #1a4d2e;
+  --green-700: #2D7D46;
+  --green-600: #38a057;
+  --green-100: #d1fae5;
+  --green-50:  #ecfdf5;
+
+  /* Lead category */
+  --hot-fill:   #dcfce7;
+  --hot-border: #86efac;
+  --hot-text:   #15803d;
+  --hot-dot:    #16a34a;
+
+  --warm-fill:   #fef9c3;
+  --warm-border: #fde047;
+  --warm-text:   #92400e;
+  --warm-dot:    #d97706;
+
+  --cold-fill:   #f3f4f6;
+  --cold-border: #d1d5db;
+  --cold-text:   #4b5563;
+  --cold-dot:    #9ca3af;
+
+  /* Surfaces */
+  --surface-base:    #ffffff;
+  --surface-raised:  #ffffff;
+  --surface-subtle:  #f8fafc;
+  --surface-muted:   #f1f5f9;
+  --surface-overlay: rgba(15, 33, 55, 0.45);
+
+  /* Text */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary:  #94a3b8;
+  --text-disabled:  #cbd5e1;
+  --text-inverse:   #ffffff;
+  --text-brand:     var(--brand-700);
+  --text-success:   #15803d;
+  --text-warning:   #92400e;
+  --text-danger:    #b91c1c;
+
+
+/* Borders */
+--border-subtle:  #f1f5f9;
+--border-default: #e2e8f0;
+--border-strong:  #cbd5e1;
+--border-focus:   var(--brand-500);
+--border-brand:   var(--brand-600);
+/* Shadows */
+--shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+--shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+--shadow-md: 0 4px 8px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
+--shadow-lg: 0 12px 24px rgba(0,0,0,0.07), 0 4px 8px rgba(0,0,0,0.04);
+--shadow-xl: 0 24px 48px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.04);
+--shadow-focus: 0 0 0 3px rgba(59,118,181,0.20);
+--shadow-focus-danger: 0 0 0 3px rgba(239,68,68,0.18);
+/* Radius */
+--r-xs:   4px;
+--r-sm:   6px;
+--r-md:   10px;
+--r-lg:   14px;
+--r-xl:   20px;
+--r-2xl:  28px;
+--r-full: 9999px;
+/* Spacing scale */
+--sp-1:  4px;
+--sp-2:  8px;
+--sp-3:  12px;
+--sp-4:  16px;
+--sp-5:  20px;
+--sp-6:  24px;
+--sp-8:  32px;
+--sp-10: 40px;
+--sp-12: 48px;
+--sp-16: 64px;
+/* Typography */
+--font:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+--font-mono:   'JetBrains Mono', 'Fira Code', monospace;
+--text-xs:   11px;
+--text-sm:   13px;
+--text-base: 15px;
+--text-md:   16px;
+--text-lg:   18px;
+--text-xl:   20px;
+--text-2xl:  24px;
+--text-3xl:  30px;
+--text-4xl:  38px;
+--text-5xl:  48px;
+/* Transitions */
+--ease:       cubic-bezier(0.4, 0, 0.2, 1);
+--ease-out:   cubic-bezier(0, 0, 0.2, 1);
+--ease-in:    cubic-bezier(0.4, 0, 1, 1);
+--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+--dur-fast:   100ms;
+--dur-base:   150ms;
+--dur-slow:   250ms;
+--dur-slower: 400ms;
+/* Sidebar */
+--sidebar-width:          240px;
+--sidebar-collapsed-width: 64px;
+--header-height:           64px;
+}
+
+---
+
+## STEP 2 — GLOBAL BASE STYLES
+
+In index.css after importing tokens.css, add:
+
+```css
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--surface-subtle);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--brand-100);
+  color: var(--brand-900);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+  border-radius: var(--r-sm);
+}
+
+img, svg { display: block; }
+
+button { font-family: var(--font); cursor: pointer; }
+
+input, textarea, select { font-family: var(--font); }
+
+a { color: var(--text-brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--r-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* Page transitions */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page { animation: pageIn var(--dur-slow) var(--ease-out); }
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 25%,
+    var(--border-default) 50%,
+    var(--surface-muted) 75%
+  );
+  background-size: 400% auto;
+  animation: shimmer 1.6s var(--ease) infinite;
+  border-radius: var(--r-sm);
+  color: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Pulse animation for call status */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 1;   }
+  100% { transform: scale(1.8); opacity: 0;   }
+}
+
+/* Message appear */
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)  scale(1);    }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Slide in from right */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Score count up — handled in JS with requestAnimationFrame */
+
+STEP 3 — COMPONENT LIBRARY
+Create frontend/src/components/ui/ folder.
+Build each component as its own file.
+Button.jsx
+jsx/* Variants: primary | secondary | ghost | danger | success | outline
+   Sizes: sm | md | lg
+   Props: loading, disabled, icon (left), iconRight */
+
+const variants = {
+  primary: {
+    background: 'var(--brand-800)',
+    color: 'var(--text-inverse)',
+    border: '1px solid var(--brand-800)',
+    hover: { background: 'var(--brand-700)', borderColor: 'var(--brand-700)' },
+    active: { background: 'var(--brand-900)' }
+  },
+  secondary: {
+    background: 'transparent',
+    color: 'var(--brand-700)',
+    border: '1px solid var(--border-default)',
+    hover: { background: 'var(--brand-50)', borderColor: 'var(--brand-200)' }
+  },
+  ghost: {
+    background: 'transparent',
+    color: 'var(--text-secondary)',
+    border: '1px solid transparent',
+    hover: { background: 'var(--surface-muted)', color: 'var(--text-primary)' }
+  },
+  danger: {
+    background: '#fee2e2',
+    color: '#991b1b',
+    border: '1px solid #fecaca',
+    hover: { background: '#fecaca' }
+  },
+  success: {
+    background: 'var(--green-100)',
+    color: 'var(--green-800)',
+    border: '1px solid var(--green-100)',
+    hover: { background: 'var(--green-100)', filter: 'brightness(0.95)' }
+  }
+}
+
+const sizes = {
+  sm: { padding: '6px 12px',  fontSize: 'var(--text-sm)', height: '32px', gap: '6px',  iconSize: 14 },
+  md: { padding: '9px 18px',  fontSize: 'var(--text-sm)', height: '38px', gap: '7px',  iconSize: 15 },
+  lg: { padding: '12px 24px', fontSize: 'var(--text-base)', height: '46px', gap: '8px', iconSize: 16 }
+}
+
+/* Shared styles all buttons get:
+   font-weight: 500
+   border-radius: var(--r-md)
+   display: inline-flex; align-items: center; justify-content: center
+   transition: all var(--dur-base) var(--ease)
+   white-space: nowrap
+   user-select: none
+   active: transform scale(0.98)
+   disabled: opacity 0.5, cursor not-allowed, no hover effects
+   loading: show 14px spinner (CSS border spinner), hide icon, keep text
+*/
+Badge.jsx
+jsx/* Variants: hot | warm | cold | premium | pro | basic
+             success | warning | danger | info | neutral
+   Size: sm | md
+   Optional dot indicator before text */
+
+/* All badges:
+   display: inline-flex; align-items: center; gap: 5px
+   padding: sm=2px 8px / md=4px 10px
+   border-radius: var(--r-full)
+   font-size: var(--text-xs) for sm, var(--text-sm) for md
+   font-weight: 500
+   border: 1px solid (matching border color)
+
+   hot:     fill=var(--hot-fill)  text=var(--hot-text)  border=var(--hot-border)
+   warm:    fill=var(--warm-fill) text=var(--warm-text) border=var(--warm-border)
+   cold:    fill=var(--cold-fill) text=var(--cold-text) border=var(--cold-border)
+   premium: fill=#fef3c7 text=#92400e border=#fde68a
+   pro:     fill=var(--brand-50) text=var(--brand-700) border=var(--brand-100)
+   basic:   fill=var(--surface-muted) text=var(--text-secondary) border=var(--border-default) */
+Card.jsx
+jsx/* Variants: default | elevated | flat | interactive
+   Props: padding (sm=16px | md=24px | lg=32px), noPadding */
+
+/* default:
+   background: var(--surface-base)
+   border: 1px solid var(--border-default)
+   border-radius: var(--r-lg)
+   box-shadow: var(--shadow-sm)
+
+   elevated:
+   box-shadow: var(--shadow-md)
+   border-color: transparent
+
+   flat:
+   box-shadow: none
+   background: var(--surface-subtle)
+
+   interactive (clickable cards):
+   cursor: pointer
+   transition: all var(--dur-base) var(--ease)
+   hover: box-shadow=var(--shadow-md) border-color=var(--border-strong) transform=translateY(-1px)
+   active: transform=translateY(0) box-shadow=var(--shadow-sm) */
+Input.jsx
+jsx/* Types: text | email | tel | password | search | textarea | select
+   Props: label, error, hint, icon (left), iconRight, size (sm|md|lg) */
+
+/* All inputs:
+   width: 100%
+   padding: sm=8px 12px / md=10px 14px / lg=12px 16px
+   border: 1px solid var(--border-default)
+   border-radius: var(--r-md)
+   font-size: var(--text-sm) for sm/md, var(--text-base) for lg
+   color: var(--text-primary)
+   background: var(--surface-base)
+   transition: border var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease)
+   outline: none
+
+   focus:
+   border-color: var(--border-focus)
+   box-shadow: var(--shadow-focus)
+
+   error:
+   border-color: #ef4444
+   box-shadow: var(--shadow-focus-danger)
+
+   with left icon:
+   padding-left: 36px (sm) / 40px (md) / 44px (lg)
+   icon positioned absolute, left: 12px, vertically centered
+   icon color: var(--text-tertiary), transitions to var(--brand-500) on focus
+
+   Label:
+   font-size: var(--text-sm)
+   font-weight: 500
+   color: var(--text-secondary)
+   margin-bottom: var(--sp-2)
+   display: block
+
+   Error message:
+   font-size: var(--text-xs)
+   color: var(--text-danger)
+   margin-top: var(--sp-1)
+   display: flex; align-items: center; gap: 4px
+   AlertCircle icon 12px before text
+
+   Hint text:
+   font-size: var(--text-xs)
+   color: var(--text-tertiary)
+   margin-top: var(--sp-1) */
+ScoreRing.jsx
+jsx/* Circular score indicator
+   Sizes: sm (36px) | md (56px) | lg (72px)
+   Props: score (0-100), animated (bool, default true) */
+
+/* Structure:
+   Outer circle: size x size px, border-radius 50%
+   Border: 2.5px solid (colour by category)
+   Background: category fill colour
+   Centre text: score number
+     sm: 13px/700
+     md: 18px/700
+     lg: 24px/700
+   Below circle (md/lg only): 'score' in var(--text-xs) var(--text-tertiary)
+
+   hot (≥70):   border #16a34a  fill #dcfce7  text #15803d
+   warm (40-69): border #d97706  fill #fef9c3  text #92400e
+   cold (<40):  border #9ca3af  fill #f3f4f6  text #4b5563
+
+   Animation (when animated=true):
+   On mount, count up from 0 to score over 800ms
+   Use requestAnimationFrame with easeOutCubic easing:
+   easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+   Update displayed number each frame
+   Also animate the border colour transitioning in over 400ms */
+ProgressBar.jsx
+jsx/* Props: value (0-100), showLabel, size (sm=4px | md=8px | lg=12px), animated */
+
+/* Track:
+   background: var(--surface-muted)
+   border-radius: var(--r-full)
+   overflow: hidden
+
+   Fill:
+   border-radius: var(--r-full)
+   transition: width 700ms var(--ease-out)
+   On mount: animate from 0 to value
+
+   Colour by value:
+   <70%:  linear-gradient(90deg, #16a34a, #22c55e)
+   70-90%: linear-gradient(90deg, #d97706, #f59e0b)
+   >90%:  linear-gradient(90deg, #dc2626, #ef4444)
+
+   Label (when showLabel=true):
+   shown above right of track
+   font-size: var(--text-sm)
+   font-weight: 600
+   colour matches fill colour */
+Table.jsx
+jsx/* Props: columns, data, loading, emptyState, onRowClick, striped */
+
+/* Container:
+   border: 1px solid var(--border-default)
+   border-radius: var(--r-lg)
+   overflow: hidden
+   background: var(--surface-base)
+   box-shadow: var(--shadow-xs)
+
+   Header:
+   background: var(--surface-subtle)
+   border-bottom: 1px solid var(--border-default)
+   th: padding 11px 16px
+       font-size: var(--text-xs)
+       font-weight: 600
+       color: var(--text-tertiary)
+       text-transform: uppercase
+       letter-spacing: 0.06em
+       white-space: nowrap
+
+   Rows:
+   td: padding 14px 16px
+       font-size: var(--text-sm)
+       border-bottom: 1px solid var(--border-subtle)
+       vertical-align: middle
+   Last row: no border-bottom
+   Hover (clickable): background var(--brand-50) cursor pointer
+   Transition: background var(--dur-fast) var(--ease)
+   Striped (alternate): odd rows var(--surface-subtle)
+
+   Loading state:
+   Show 5 skeleton rows
+   Each cell has a .skeleton div
+   Height 16px, width varies by column (name=140px, short=60px, etc)
+
+   Empty state:
+   Full width cell, padding 60px 20px
+   Centered: icon + title + description
+   icon: 40px wrapped in 72px soft circle
+   title: var(--text-base) 600 var(--text-primary)
+   desc: var(--text-sm) var(--text-secondary) max-width 300px */
+Modal.jsx
+jsx/* Props: open, onClose, title, size (sm=420px | md=560px | lg=720px | xl=900px)
+   children, footer */
+
+/* Overlay:
+   position: fixed inset-0
+   background: var(--surface-overlay)
+   backdrop-filter: blur(4px)
+   z-index: 50
+   animation: fadeIn var(--dur-base) var(--ease-out)
+
+   Panel:
+   background: var(--surface-base)
+   border-radius: var(--r-xl)
+   box-shadow: var(--shadow-xl)
+   width: size value, max-width: calc(100vw - 32px)
+   max-height: calc(100vh - 64px)
+   overflow-y: auto
+   animation: slideInRight var(--dur-slow) var(--ease-spring) on mobile
+             scale from 0.96 + fadeIn on desktop
+
+   Header:
+   padding: 20px 24px 16px
+   border-bottom: 1px solid var(--border-subtle)
+   display: flex; justify-content: space-between; align-items: center
+   title: var(--text-lg) 600
+   close button: ghost 32x32px X icon
+
+   Body:
+   padding: 24px
+
+   Footer:
+   padding: 16px 24px 20px
+   border-top: 1px solid var(--border-subtle)
+   display: flex; justify-content: flex-end; gap: var(--sp-3)
+
+   Close on overlay click and Escape key */
+Toast system
+jsx/* Install react-hot-toast and configure in main.jsx:
+   <Toaster
+     position="top-right"
+     toastOptions={{
+       duration: 3500,
+       style: {
+         fontFamily: 'var(--font)',
+         fontSize: 'var(--text-sm)',
+         borderRadius: 'var(--r-md)',
+         border: '1px solid var(--border-default)',
+         boxShadow: 'var(--shadow-lg)',
+         color: 'var(--text-primary)',
+         background: 'var(--surface-base)',
+         padding: '12px 16px',
+         maxWidth: '360px'
+       },
+       success: {
+         iconTheme: { primary: 'var(--hot-dot)', secondary: 'white' }
+       },
+       error: {
+         iconTheme: { primary: '#dc2626', secondary: 'white' }
+       }
+     }}
+   />
+
+   Replace every alert(), console.error shown to user, and
+   success message with toast.success() or toast.error() */
+
+STEP 4 — SIDEBAR
+Completely rebuild the sidebar component:
+jsx/* File: frontend/src/components/layout/Sidebar.jsx
+
+STRUCTURE:
+┌─────────────────────────┐
+│  Logo area (64px)       │
+├─────────────────────────┤
+│  Nav items (flex-grow)  │
+│  with section labels    │
+├─────────────────────────┤
+│  User card (pinned)     │
+└─────────────────────────┘
+
+DESKTOP: fixed left-0 top-0, width 240px, height 100vh
+MOBILE: position fixed, transforms translateX(-100%) when closed
+        overlay behind it when open
+
+Logo area:
+- Height 64px, padding 0 20px
+- Left: small square with 'E' letter in brand-800 bg white text (24px, font-weight 700) rounded-md
+- Right of square: 'EduLeads' 15px/700 brand-900, 'Kerala' 11px/400 text-tertiary below
+- Bottom border: 1px solid var(--border-subtle)
+
+Nav section label:
+- font-size: var(--text-xs)
+- font-weight: 600
+- color: var(--text-tertiary)
+- text-transform: uppercase
+- letter-spacing: 0.08em
+- padding: 20px 16px 6px
+
+Nav item:
+- padding: 9px 12px
+- margin: 1px 8px
+- border-radius: var(--r-md)
+- display: flex; align-items: center; gap: 10px
+- font-size: var(--text-sm); font-weight: 500
+- cursor: pointer
+- transition: all var(--dur-fast) var(--ease)
+- Icon: 17px, color inherits
+
+Nav item states:
+- default: color var(--text-secondary), bg transparent
+- hover: color var(--text-primary), bg var(--surface-muted)
+- active: color var(--brand-800), bg var(--brand-50), font-weight 600
+  ALSO: left border indicator:
+  position relative, ::before pseudo-element
+  width: 3px, height: 60%, border-radius 0 2px 2px 0
+  background: var(--brand-800)
+  position: absolute, left: -8px (margin accounts for this)
+  top: 50%, transform: translateY(-50%)
+
+Unread badge on Messages nav item:
+- Small pill: height 18px, min-width 18px
+- background: var(--brand-800), color white
+- font-size: 11px, font-weight 600
+- border-radius: var(--r-full)
+- margin-left: auto
+- Display '9+' when count > 9
+
+Add Lead nav item (superadmin):
+- Same as other items but color: var(--green-700)
+- Hover bg: var(--green-50)
+- Active bg: var(--green-50), color: var(--green-800)
+- Small green dot indicator instead of brand indicator
+
+User card (bottom):
+- Border-top: 1px solid var(--border-subtle)
+- Padding: 12px 16px
+- Display: flex; align-items: center; gap: 10px
+
+Avatar:
+- 34px circle
+- Background: var(--brand-100)
+- Color: var(--brand-800)
+- Font: var(--text-sm) 600
+- Initials of user name
+
+User info:
+- Name: var(--text-sm) 500 var(--text-primary), truncate at 120px
+- Role: var(--text-xs) var(--text-tertiary), one line below
+
+Plan badge: inline after name, use Badge component
+
+Logout button:
+- Ghost icon button, right side
+- LogOut icon 16px, var(--text-tertiary)
+- Hover: var(--text-danger)
+
+Mobile hamburger:
+- Fixed top-left, z-50
+- 44x44px button, bg var(--surface-base), border var(--border-default)
+- border-radius var(--r-md), box-shadow var(--shadow-sm)
+- Menu icon 20px
+- Only visible on mobile (<768px)
+- Position: top: 10px, left: 12px
+
+Sidebar overlay (mobile):
+- Fixed inset-0, bg var(--surface-overlay)
+- backdrop-filter: blur(2px)
+- z-index: 39 (sidebar is 40)
+- Fade in/out animation */
+
+STEP 5 — HEADER BAR
+jsx/* File: frontend/src/components/layout/Header.jsx
+
+Position: fixed top-0, left: var(--sidebar-width), right: 0
+Height: var(--header-height) = 64px
+Background: rgba(255,255,255,0.92)
+backdrop-filter: blur(12px)
+border-bottom: 1px solid var(--border-subtle)
+z-index: 30
+padding: 0 24px
+display: flex; align-items: center; justify-content: space-between
+
+On mobile: left: 0, add padding-left: 64px (hamburger space)
+
+Left side:
+- Page title: var(--text-lg) 600 var(--text-primary)
+- Breadcrumb (detail pages only): var(--text-xs) var(--text-tertiary)
+  Format: 'Leads / Student Name'
+  Separator: / in var(--text-disabled)
+
+Right side (left to right, gap: 8px):
+
+1. Notification bell:
+   - Ghost button 36x36px, Bell icon 18px
+   - Unread badge: 8px red dot top-right of icon (when count > 0)
+   - Click: open notification dropdown
+
+2. Divider: 1px solid var(--border-default), height 20px
+
+3. User pill:
+   - Display: flex; align-items: center; gap: 8px
+   - Avatar 30px circle (initials, brand-100 bg)
+   - Name: var(--text-sm) 500 (hidden on mobile)
+   - ChevronDown icon 14px var(--text-tertiary)
+   - Click: open user dropdown
+   - Hover: bg var(--surface-muted), border-radius var(--r-md), padding 4px 8px
+
+Notification dropdown:
+- Width: 340px
+- Position: absolute top: calc(100% + 8px) right: 0
+- Background: var(--surface-base)
+- Border: 1px solid var(--border-default)
+- Border-radius: var(--r-lg)
+- Box-shadow: var(--shadow-xl)
+- Max-height: 420px, overflow-y: auto
+- animation: fadeIn + translateY(4px→0) var(--dur-base)
+
+Notification item:
+- Padding: 12px 16px
+- Border-bottom: 1px solid var(--border-subtle)
+- Display: flex; gap: 12px; align-items: flex-start
+- Unread: bg var(--brand-50), left border 2px var(--brand-500)
+- Read: bg transparent
+- Icon circle: 36px, border-radius 50%, colour by type
+  new_lead=green-50, new_message=brand-50, quota=warm-fill, system=surface-muted
+- Title: var(--text-sm) 500
+- Description: var(--text-xs) var(--text-secondary) margin-top 2px
+- Time: var(--text-xs) var(--text-tertiary) margin-top 4px
+- Hover: bg var(--surface-muted), cursor pointer
+
+User dropdown:
+- Width: 220px
+- Same position/style as notification dropdown
+- Items: My Profile, Settings, Divider, Sign Out
+- Sign Out: color var(--text-danger)
+- Each item: padding 9px 16px, flex + icon 16px + label var(--text-sm)
+  hover: bg var(--surface-muted) */
+
+STEP 6 — PAGE LAYOUTS
+jsx/* File: frontend/src/components/layout/AppLayout.jsx
+
+Structure:
+<div style="display:flex; min-height:100vh">
+  <Sidebar />
+  <div style="flex:1; margin-left:var(--sidebar-width); display:flex; flex-col">
+    <Header />
+    <main style="margin-top:var(--header-height); padding:24px; min-height:calc(100vh - var(--header-height))">
+      <div class="page">
+        <Outlet /> (React Router)
+      </div>
+    </main>
+  </div>
+</div>
+
+Mobile: margin-left: 0 on the content div
+Tablet: margin-left: var(--sidebar-collapsed-width)
+
+Content max-width: 1280px, margin: 0 auto for all inner content */
+
+STEP 7 — SPECIFIC PAGE REDESIGNS
+Login page
+Two column layout, min-height 100vh
+
+LEFT PANEL (55% desktop, hidden mobile):
+Background: linear-gradient(160deg, var(--brand-900) 0%, var(--brand-800) 60%, var(--green-800) 100%)
+Padding: 64px 56px
+Display: flex; flex-direction: column; justify-content: space-between
+
+Top: Logo (white version — white square + white text)
+
+Middle:
+- Overline: 'TRUSTED BY 50+ KERALA COLLEGES' in 11px/600 uppercase
+  color: rgba(255,255,255,0.5), letter-spacing 0.1em
+  with a 24px green-100 dot before it
+- Headline: 'Find the right students for your college'
+  font-size: 36px, font-weight: 700, color: white
+  line-height: 1.25, margin-top: 16px
+- 3 feature rows (icon + text), margin-top: 32px
+  icon: 20px CheckCircle, color green-100
+  text: 15px/400 rgba(255,255,255,0.8)
+  rows: 'AI counsellor qualifies students in Malayalam'
+        'Phone numbers protected until you upgrade'
+        'Verified leads with scored intent data'
+
+Bottom: Testimonial card
+background: rgba(255,255,255,0.08)
+border: 1px solid rgba(255,255,255,0.12)
+border-radius: var(--r-lg)
+padding: 20px
+Quote: 14px/400 italic rgba(255,255,255,0.85)
+Author: 12px/500 rgba(255,255,255,0.55) margin-top 12px
+Example: '"We filled 40 seats in one admission season."
+          — Principal, MES College, Ernakulam'
+
+RIGHT PANEL (45% desktop, 100% mobile):
+Background: var(--surface-base)
+Padding: 0
+Display: flex; align-items: center; justify-content: center
+
+Inner form container:
+Max-width: 400px, width: 100%
+Padding: 48px 40px (desktop) / 32px 24px (mobile)
+
+Top: Logo mark only (mobile) or nothing (desktop — logo is on left)
+
+Heading: 'Welcome back' var(--text-3xl) 700 var(--text-primary)
+Subheading: 'Sign in to your EduLeads account'
+            var(--text-sm) var(--text-secondary) margin-top: 8px
+
+Form: margin-top 32px, display flex flex-col gap 20px
+- Email input with Mail icon
+- Password input with Lock icon + show/hide toggle (Eye/EyeOff)
+- Row: Remember me checkbox left + Forgot password? link right
+- Sign In button: full width, size lg, primary
+  loading state shows spinner + 'Signing in...'
+
+Divider: margin 24px 0
+1px line each side with 'New to EduLeads?' text center
+
+Register link: full width secondary button 'Create an account'
+Dashboard overview page
+Page header area:
+- Greeting row: 'Good [morning/afternoon/evening], [First Name] 👋'
+  var(--text-2xl) 700, colour var(--text-primary)
+  Greeting determined by hour: <12=morning, <17=afternoon, else=evening
+- Date: 'Monday, 3 May 2026' var(--text-sm) var(--text-tertiary) margin-top 4px
+
+Quota warning banner (show when quota_used/quota_monthly >= 0.8):
+- margin-top: 16px
+- background: linear-gradient(90deg, #fffbeb, #fef9c3)
+- border: 1px solid #fde68a
+- border-left: 4px solid #d97706
+- border-radius: var(--r-md)
+- padding: 12px 16px
+- display: flex; align-items: center; gap: 12px
+- AlertTriangle icon 18px amber + text var(--text-sm) + Upgrade button sm on right
+
+Metric cards row: 4 cards, CSS grid repeat(4, 1fr), gap 16px
+Tablet: repeat(2, 1fr). Mobile: repeat(2, 1fr)
+
+Each metric card:
+- background: var(--surface-base)
+- border: 1px solid var(--border-default)
+- border-radius: var(--r-lg)
+- padding: 20px
+- position: relative; overflow: hidden
+
+Card structure:
+- Top row: label var(--text-sm) var(--text-secondary) + icon circle right
+  Icon circle: 36px, border-radius 50%, soft coloured bg
+  Leads=brand-50 + brand-600 icon
+  Hot=green-50 + green-700 icon
+  Messages=purple-50 + purple-600 icon
+  Quota=warm-fill + warm-dot icon
+- Value: var(--text-3xl) 700 var(--text-primary), margin-top 12px
+  Animated count-up on mount (same requestAnimationFrame technique)
+- Trend: margin-top 6px, var(--text-xs)
+  Up: TrendingUp 12px green + 'X% from last month' green
+  Down: TrendingDown 12px red + text red
+  Neutral: Minus 12px text-tertiary
+
+Subtle decorative gradient blob in bottom-right corner of each card:
+position: absolute, bottom: -20px, right: -20px
+width: 80px, height: 80px, border-radius: 50%
+opacity: 0.06, colour matches icon circle bg
+
+Lead trend chart:
+- Card with heading 'Lead activity' + '30 days' badge top-right
+- Recharts AreaChart height 200px
+- Area: fill var(--brand-100) stroke var(--brand-600) strokeWidth 2
+- type='monotone' for smooth curve
+- No grid lines — only bottom axis
+- Custom tooltip: white card border-radius var(--r-md) shadow-md
+  Date + count in Inter font
+- Responsive: width='100%'
+- Dot: only on hover, size 4, fill brand-800
+
+Recent leads table below chart:
+- Card with 'Recent leads' heading + 'View all →' link top-right
+- Use Table component, last 5 leads
+- Compact rows (padding 10px 16px instead of 14px)
+Leads list page
+Filter bar (Card, flat variant):
+- Layout: flex wrap, gap: 12px, align-items: center
+- Search: width 260px, SearchIcon prefix, placeholder 'Search name or course...'
+- Category pills: inline flex gap 6px
+  'All' + 'Hot' + 'Warm' + 'Cold'
+  Each: padding 6px 14px, border-radius var(--r-full)
+  Inactive: border var(--border-default) bg transparent text var(--text-secondary)
+  Active hot: bg var(--hot-fill) border var(--hot-border) text var(--hot-text)
+  Active warm: bg var(--warm-fill) border var(--warm-border) text var(--warm-text)
+  Active cold: bg var(--cold-fill) border var(--cold-border) text var(--cold-text)
+  Active all: bg var(--brand-800) border var(--brand-800) text white
+  Transition: all var(--dur-base)
+- Status select: width 160px
+- Location select: width 180px
+- Clear filters text button (only when filters active):
+  var(--text-sm) var(--text-brand), X icon 12px before text
+
+Table (use Table component):
+Columns:
+1. Student: avatar circle (36px initials brand-100/brand-800) + name var(--text-sm) 500 + course var(--text-xs) text-secondary below — two lines in one cell
+2. Location: MapPin 12px text-tertiary + text
+3. Score: ScoreRing size=sm
+4. Category: Badge (hot/warm/cold)
+5. Status: status badge with colours
+   new=brand, contacted=purple, qualified=amber, enrolled=green, lost=gray
+6. Received: relative time 'X days ago', hover shows exact date in tooltip
+7. Actions: three icon buttons — Eye (view), MessageSquare (chat), Phone (call — pro/premium only, else locked with tooltip)
+
+Mobile card view (< 768px):
+Instead of table, render each lead as a Card (interactive):
+- Top row: avatar + name + category badge
+- Second row (text-secondary text-sm): course · location
+- Third row: ScoreRing sm + status badge + 'X days ago' text-tertiary
+- Tap whole card → lead detail
+Lead detail page
+Full-page layout: no card wrapper — full width content
+
+Page header (inside content area, not the fixed header):
+- Breadcrumb row: '← Back to Leads' link (ChevronLeft + text) left
+- Heading row: Student name var(--text-2xl) 700 + badges row below
+  badges: category badge, source badge (WhatsApp/Phone/Web), status badge
+- Score ring size=lg: float right on desktop, below name on mobile
+- Last activity: var(--text-xs) Clock icon + 'Last active 2 days ago' text-tertiary
+
+Two-panel grid: 38% left / 62% right, gap: 24px
+Mobile: single column, info panel first, chat below
+
+LEFT PANEL — Student info card:
+- Card default variant
+- Section heading 'Student Information' var(--text-sm) 600 text-secondary uppercase tracking-wide, border-bottom border-subtle, padding-bottom 12px, margin-bottom 16px
+- Each field:
+  label: var(--text-xs) 500 text-tertiary uppercase tracking-wide, display block, margin-bottom 4px
+  value: var(--text-sm) 500 text-primary
+  Each field: padding-bottom 14px, border-bottom border-subtle, margin-bottom 14px
+  Last field: no border/margin
+
+Phone field (locked — basic/pro):
+  - Blurred text: 'XXXXXXXXXXX' with filter: blur(5px) user-select: none
+  - Lock icon overlay centered
+  - Below blur: small amber box with LockIcon + 'Upgrade to Premium to reveal' + Upgrade button sm
+  - background: linear-gradient(135deg, #fffbeb, #fef3c7)
+  - border: 1px solid #fde68a, border-radius var(--r-md), padding: 12px
+
+Phone field (revealed — premium):
+  - Phone number text visible, font-mono
+  - Copy button: sm ghost, Copy icon, 'Copy' text, click copies + shows 'Copied! ✓' for 2s
+  - Call via Platform button: sm success variant
+  - Audit trail note: var(--text-xs) text-tertiary 'This action has been logged'
+
+Status section (below fields):
+- 'Update Status' label
+- Horizontal row of status pills:
+  new / contacted / qualified / enrolled / lost
+  Clicking a pill immediately calls PATCH /api/leads/:id/status/
+  Active pill: filled colour, inactive: border only
+  Loading: spinner on active pill while saving
+
+Notes section:
+- 'Private Notes' label with Lock icon (private to this college)
+- Textarea: min-height 80px, auto-expand
+- Auto-save with 1-second debounce
+- 'Saved ✓' indicator fades in then out after save
+
+RIGHT PANEL — Chat:
+- Card, noPadding
+- Header: padding 16px 20px, border-bottom
+  'Conversation' var(--text-sm) 600 left
+  Channel badge right ('via WhatsApp' / 'via Phone')
+  WS status dot (green=live, gray=reconnecting) far right
+
+Messages area:
+- padding 16px 20px
+- min-height 400px, max-height 520px, overflow-y: auto
+- subtle inset shadow at top and bottom edges:
+  pseudo ::before and ::after with gradient overlays
+  (white to transparent, 32px tall, pointer-events none)
+
+Message bubbles:
+College message (right-aligned):
+  - margin-left auto, max-width 75%
+  - background: var(--brand-800), color: white
+  - border-radius: 16px 16px 4px 16px
+  - padding: 10px 14px
+  - font-size: var(--text-sm)
+  - animation: msgIn var(--dur-base) var(--ease-out)
+  - Timestamp: var(--text-xs) rgba(255,255,255,0.6) below, text-right
+
+Student message (left-aligned):
+  - margin-right: auto, max-width 75%
+  - background: var(--surface-subtle)
+  - border: 1px solid var(--border-default)
+  - border-radius: 16px 16px 16px 4px
+  - padding: 10px 14px
+  - font-size: var(--text-sm)
+  - animation: msgIn var(--dur-base) var(--ease-out)
+  - Timestamp: var(--text-xs) var(--text-tertiary) below
+
+Date separators between messages from different days:
+  - Centered text: var(--text-xs) var(--text-tertiary)
+  - Lines either side: 1px border-subtle
+  - e.g. 'Yesterday' or '2 May 2026'
+
+Typing indicator (show when AI is responding):
+  - Student bubble with 3 animated dots
+  - Each dot: 6px circle, brand-800 color
+  - Animation: bounce staggered 0ms / 150ms / 300ms
+
+Chat input area:
+- Padding: 12px 16px
+- Border-top: 1px solid var(--border-subtle)
+- Background: var(--surface-base)
+- Layout: flex, gap 10px
+- Textarea:
+  flex: 1
+  padding: 10px 14px
+  border: 1px solid var(--border-default)
+  border-radius: var(--r-xl)
+  font-size: var(--text-sm)
+  resize: none
+  min-height: 42px, max-height: 120px
+  auto-expand as user types
+  focus: border var(--border-focus) shadow var(--shadow-focus)
+- Send button:
+  42x42px circle
+  background: var(--brand-800)
+  SendHorizonal icon 18px white
+  disabled: opacity 0.4 cursor not-allowed
+  hover: var(--brand-700)
+  active: scale(0.94)
+  transition: all var(--dur-fast)
+  loading: show spinner instead of icon
+Manual lead entry (superadmin)
+Two-column layout: 58% form / 42% score preview (sticky top-24)
+
+Form layout:
+Use Card default, padding lg
+Section dividers: margin 24px 0, border-top var(--border-subtle)
+
+Section 1 — Student details:
+Small section label 'STUDENT DETAILS' (var(--text-xs) 600 uppercase text-tertiary letter-spacing 0.08em)
+Two inputs side by side: Name (UserIcon) + WhatsApp (+91 prefix, PhoneIcon)
+
+Section 2 — Academic interest:
+'ACADEMIC INTEREST'
+Course select (searchable, full width) + Location select (MapPin icon prefix)
+side by side on desktop
+
+Section 3 — Qualification:
+'QUALIFICATION'
+Three selects in a row: Budget | Timeline | Intent
+Each with a relevant icon prefix:
+Budget=IndianRupee, Timeline=Calendar, Intent=Target
+
+Section 4 — Notes:
+'ADDITIONAL NOTES'
+Textarea full width, 3 rows
+
+Submit button:
+margin-top: 32px, full width, size lg, primary
+Sparkles icon (or Zap) left of text
+Text: 'Score and Distribute Lead'
+Loading: 'Processing...' + spinner
+
+SCORE PREVIEW CARD (right column, sticky):
+Card elevated, padding 24px
+
+Header: 'Live Score Preview' var(--text-base) 600 + sparkle icon
+Subtext: 'Updates as you fill the form' var(--text-xs) text-tertiary
+
+Score ring: size lg, centered, margin: 24px auto
+Animated: updates live as any field changes
+
+Category badge: centered below ring
+
+Dimension breakdown (5 rows):
+Each row:
+- Label: var(--text-xs) 500 text-secondary, left
+- Points: 'X / maxPts' var(--text-xs) text-tertiary right
+- Bar: ProgressBar sm, full width, value = (earned/max)*100
+- Colour: full points=green, partial=amber, zero=gray/red
+- Small icon per dimension:
+  Intent=Target, Course=BookOpen, Budget=IndianRupee, Timeline=Clock, Completeness=CheckSquare
+
+Allocation preview (bottom of card):
+- Separator + 'Distribution preview' label
+- 'This lead will go to X colleges' or 'X premium + Y pro + Z basic clients'
+- Small college icons/avatars row
+- fetch count from GET /api/admin/leads/allocation-preview/ with score+category params
+
+STEP 8 — CALL BUTTON VISUAL UPGRADE
+css.call-button-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--green-50);
+  color: var(--green-800);
+  border: 1px solid var(--green-100);
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur-base) var(--ease);
+}
+.btn-call:hover {
+  background: var(--green-100);
+  border-color: var(--green-600);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.call-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border: 1px solid;
+}
+
+.call-status.calling {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--brand-700);
+}
+
+.call-status.connected {
+  background: var(--green-50);
+  border-color: var(--green-100);
+  color: var(--green-800);
+}
+
+.pulse-ring {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand-500);
+  position: relative;
+}
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid var(--brand-500);
+  animation: pulse-ring 1.2s var(--ease-out) infinite;
+}
+
+.pulse-ring.green { background: var(--hot-dot); }
+.pulse-ring.green::before { border-color: var(--hot-dot); }
+
+.call-disclaimer {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+STEP 9 — LANDING PAGE
+Navbar:
+- Fixed top, height 64px
+- Background: transparent → white with border-bottom on scroll (use IntersectionObserver)
+- Content: max-width 1200px margin auto, padding 0 24px
+- Left: Logo
+- Center: nav links 'How it works' 'Pricing' 'Contact'
+  font-size var(--text-sm) 500 text-secondary
+  hover: text-primary, underline offset 3px
+- Right: 'Sign in' ghost sm + 'Get Started' primary sm
+
+Hero section:
+- Background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(30,58,95,0.08), transparent)
+- Padding-top: 120px, padding-bottom: 80px
+- Text-align: center
+- Max-width: 800px, margin: 0 auto
+
+- Overline pill: inline-flex badge, brand-50 bg, brand-600 border
+  Sparkles icon 14px + 'AI-powered in Malayalam' text
+  border-radius var(--r-full), font-size var(--text-sm)
+
+- H1: var(--text-5xl) 700 text-primary line-height 1.15 letter-spacing -0.03em
+  'Find Qualified Students for Your College'
+  'Qualified' word: color var(--brand-700) with subtle underline
+  (text-decoration: underline wavy var(--brand-200))
+
+- Subheadline: var(--text-xl) 400 text-secondary max-width 600px margin 20px auto 0
+  line-height 1.6
+
+- CTA row: margin-top 36px, display flex justify-center gap 12px
+  Primary: 'Get Started Free' lg
+  Secondary: 'See how it works →' lg outline
+
+- Trust strip: margin-top 48px
+  3 stats side by side with dividers:
+  Number: var(--text-2xl) 700 brand-800
+  Label: var(--text-sm) text-secondary
+  Stats: '500+ leads delivered' / '50+ colleges' / '< 1.5s AI response'
+
+How it works section:
+- Padding: 96px 24px
+- Section badge + heading (same style as hero overline)
+- 3 step cards: CSS grid repeat(3,1fr) gap 24px
+  Each card: Card interactive variant
+  Step number: var(--text-4xl) 700 brand-100 (background colour, not text colour)
+    actually: large text on top-left of card, color var(--brand-100), position absolute
+    behind the content
+  Icon circle: 48px, brand-50 bg, brand-600 icon 22px
+  Title: var(--text-lg) 600 margin-top 16px
+  Body: var(--text-sm) text-secondary margin-top 8px line-height 1.6
+  Connecting arrow between cards (desktop only): →, absolute centered between cards
+
+Pricing section:
+- Padding: 96px 24px
+- 3 cards: repeat(3,1fr) gap 20px, max-width 1100px margin auto
+- Pro card: elevated variant, scale(1.03), 'Most Popular' badge pinned to top
+- Each card top: plan name + badge + price (var(--text-4xl) 700) + /month text-secondary
+- Divider
+- Feature list: CheckCircle 16px green-600 + feature text var(--text-sm) per row, gap 10px
+- CTA button full width at bottom: primary for Pro, secondary for others
+
+Trust/privacy section:
+- Background: var(--brand-900)
+- Padding: 80px 24px
+- 3 items in a row: icon circle (rgba white 0.1 bg) + title white + desc rgba white 0.7
+
+Footer:
+- Border-top var(--border-default)
+- Padding: 32px 24px
+- Logo left + copyright center + links right
+
+STEP 10 — FINAL CHECKS
+After applying all styles, do these checks:
+1. Open app at 375px width:
+   - Sidebar is hidden, hamburger visible
+   - Login page shows only right panel
+   - All text is readable, nothing overflows
+   - Lead detail stacks vertically
+   - Tables show as cards
+   - Bottom nav shows on dashboard pages
+
+2. Open app at 1440px width:
+   - Sidebar 240px, full nav visible
+   - All cards aligned on a grid
+   - No content stretches full 1440px (max-width 1280px respected)
+   - Lead detail two panels side by side
+
+3. Check every loading state:
+   - All data containers show skeleton while loading
+   - No blank white flashes
+   - Buttons show spinner when submitting
+
+4. Check all empty states:
+   - Every table shows empty state component correctly
+   - Empty chat shows center message
+
+5. Check colour consistency:
+   - No hardcoded hex colours in component files
+   - All colours come from CSS variables
+   - Hot/warm/cold badges consistent everywhere
+
+6. Check animations:
+   - Page loads fade in smoothly
+   - Score rings animate count-up on first view
+   - Quota bars animate fill on load
+   - Chat bubbles animate in
+   - No janky or laggy transitions
+
+7. Check fonts:
+   - Inter loading from Google Fonts
+   - All text uses var(--font)
+   - No system font fallback visible
+
+8. Fix any console errors or warnings.
+
+Apply all steps now. Start with Step 1 tokens, then Step 2 base styles, then Step 3 component library, then Steps 4-10 in order. Confirm completion of each step before moving to the next

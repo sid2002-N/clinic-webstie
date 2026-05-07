@@ -1,0 +1,183 @@
+Improve the landing page UI. Apply every change below precisely. Do not touch any logic, routing, or API calls.
+
+HERO SECTION
+Current problem: centered text wall with no visual anchor, subheadline too small, stats disconnected.
+Changes:
+
+Change hero layout to two-column on desktop (55% text left, 45% visual right). On mobile keep single column centered.
+Left column content stays the same but left-aligned on desktop, centered on mobile.
+Right column: add a floating demo card visual. Build this as pure CSS/HTML — no image needed:
+
+A card (white, border-radius 20px, box-shadow 0 20px 60px rgba(0,0,0,0.12), padding 24px, width 320px):
+
+Top row: small green dot (8px, animated pulse) + 'Mitra is typing...' text in 13px text-secondary
+
+Below: three chat bubbles stacked
+Bubble 1 (left, gray bg): 'നമസ്കാരം! ഏത് കോഴ്‌സ് പഠിക്കാൻ ആഗ്രഹിക്കുന്നു?'  (12px)
+Bubble 2 (right, brand-800 bg white text): 'B.Tech Computer Science' (12px)
+Bubble 3 (left, gray bg): 'മികച്ച തിരഞ്ഞെടുപ്പ്! കേരളത്തിൽ എവിടെ?' (12px)
+
+Below bubbles: a score preview row:
+Small circle (32px, green bg, white text '87') + 'Hot Lead' green badge + 'Scoring complete' 11px text
+
+The card floats with a subtle CSS animation:
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+animation: float 4s ease-in-out infinite;
+
+Stats strip: change from 3 separate numbers to a single row with vertical dividers between them. Add a thin top border above the strip. Background: white. Padding: 20px 0. Each stat: number in 28px/700 brand-800, label in 13px text-secondary below it.
+
+
+HOW IT WORKS SECTION
+Current problem: step numbers too dominant, cards feel empty, too much whitespace.
+Changes:
+
+Step number: move to top-right corner of card, make it 64px/800 weight, color: var(--brand-100) — it becomes a background decoration, not a foreground element. Add position: absolute top: 16px right: 20px. Card needs position: relative overflow: hidden.
+Icon: increase circle to 52px. Icon size 24px. Background: var(--brand-50). Icon color: var(--brand-700).
+Card title: increase to 18px/600.
+Card body: increase to 14px, line-height 1.7.
+Add a thin coloured top border to each card:
+Card 1: border-top 3px solid var(--brand-600)
+Card 2: border-top 3px solid var(--warm-dot)
+Card 3: border-top 3px solid var(--hot-dot)
+Add connecting arrows between cards on desktop:
+Position: absolute, between card 1 and 2, between card 2 and 3
+Arrow: → character, 24px, color: var(--border-strong)
+Vertically centered with the cards
+Hidden on mobile
+Reduce bottom padding of this section from whatever it is to 64px.
+
+
+PRICING SECTION
+Current problem: Basic and Premium card borders too faint, checkmarks too small, uneven card heights.
+Changes:
+
+All three cards: min-height 480px, display flex flex-col.
+Feature list: push to flex-grow so the CTA button is always pinned to the bottom of each card.
+Basic card border: 1px solid var(--border-default). No change needed.
+Pro card: keep the elevated style but also add:
+background: linear-gradient(180deg, var(--brand-800) 0%, var(--brand-900) 100%)
+All text: white
+Plan name badge: white bg, brand-800 text
+Price: white
+Feature checkmarks: green-400 color
+Feature text: rgba(255,255,255,0.85)
+CTA button: white bg, brand-800 text, hover: brand-50 bg
+'Most Popular' badge: brand-600 bg white text (currently it looks washed out)
+Premium card: add border: 2px solid var(--brand-200). Add a subtle gold accent:
+'Premium' badge: background #fef3c7, color #92400e, border 1px solid #fde68a
+Checkmark icons: increase to 16px. Use a filled circle-check style, not outline.
+Basic: color var(--green-700)
+Pro: color #86efac (light green on dark bg)
+Premium: color var(--green-700)
+Feature text: increase to 14px, line-height 1.6.
+
+
+PRIVACY AND TRUST SECTION
+Current problem: icons too small, sparse layout, abrupt transition.
+Changes:
+
+Change background to: background: linear-gradient(180deg, var(--brand-900) 0%, #0a1628 100%)
+Add a subtle separator at the top of this section:
+A 1px line with opacity 0.1, or a decorative wave SVG divider between pricing and this section.
+Icon circles: increase to 64px. Icon size: 28px.
+Icon circle background: rgba(255,255,255,0.08)
+Border: 1px solid rgba(255,255,255,0.12)
+Icon color: rgba(255,255,255,0.7)
+Section overline 'PRIVACY & TRUST': increase letter-spacing to 0.12em, color rgba(255,255,255,0.4).
+Titles: 16px/600 white.
+Body: 14px rgba(255,255,255,0.65) line-height 1.7.
+Add a 4th item to the row: 'DPDP Act compliant' with a Shield icon and description 'Built to comply with India's Digital Personal Data Protection Act 2023.'
+Adjust grid to repeat(4,1fr) on desktop, repeat(2,1fr) on tablet, 1 column on mobile.
+
+
+FOOTER
+Current problem: newsletter section feels disconnected from the footer above it.
+Changes:
+
+Move the newsletter subscription bar inside the footer, above the link columns. Full width, border-bottom 1px solid rgba(255,255,255,0.08), padding-bottom 32px, margin-bottom 32px.
+Newsletter layout: flex row on desktop — left: heading + subtext (60%), right: email input + button (40%).
+Email input: dark themed — background rgba(255,255,255,0.06), border 1px solid rgba(255,255,255,0.12), color white, placeholder rgba(255,255,255,0.4). Border-radius var(--r-md). Focus: border rgba(255,255,255,0.3).
+Subscribe button: white bg, brand-900 text, hover brand-50 bg.
+Chat on WhatsApp button in footer: increase size slightly, add a subtle pulse animation on the green dot.
+
+
+NAVBAR
+Current problem: navbar is functional but plain.
+Changes:
+
+On scroll (when page scrolled > 60px):
+background: rgba(255,255,255,0.95)
+backdrop-filter: blur(12px)
+box-shadow: 0 1px 0 var(--border-default)
+transition: all 250ms ease
+Use IntersectionObserver on the hero section to toggle a 'scrolled' class on the navbar.
+Nav links: add underline animation on hover:
+position relative, ::after pseudo-element
+width 0 → 100% on hover, transition 200ms
+height 2px, background var(--brand-600)
+bottom: -2px
+Get Started button: add a subtle right-arrow icon (ArrowRight 14px) after the text. On hover, arrow moves 3px right: transform translateX(3px), transition 150ms.
+
+
+GLOBAL TYPOGRAPHY IMPROVEMENTS
+
+All section overline pills (the small badge above each section heading like 'How it works', 'Pricing'):
+
+padding: 6px 14px
+background: var(--brand-50)
+border: 1px solid var(--brand-100)
+border-radius: var(--r-full)
+font-size: 12px/600 uppercase letter-spacing 0.06em
+color: var(--brand-700)
+display: inline-flex align-items: center gap: 6px
+Add a small colored dot (6px circle, brand-500) before the text
+
+
+All section main headings: font-size 36px/700 on desktop, 28px on mobile. Letter-spacing -0.02em. Color var(--text-primary).
+All section subheadings: 16px/400 var(--text-secondary) max-width 560px margin: 12px auto 0. Line-height 1.65.
+
+
+MICRO-ANIMATIONS
+Add these subtle entrance animations using IntersectionObserver. When each section scrolls into view, animate its content:
+javascript// Add this utility to a new file: src/utils/animations.js
+export function observeEntrance(selector, options = {}) {
+  const elements = document.querySelectorAll(selector)
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible')
+        observer.unobserve(entry.target)
+      }
+    })
+  }, { threshold: 0.15, ...options })
+  elements.forEach(el => observer.observe(el))
+}
+css/* Add to index.css */
+.animate-up {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 500ms ease, transform 500ms ease;
+}
+.animate-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Stagger children */
+.stagger > * { transition-delay: calc(var(--i, 0) * 80ms); }
+.stagger > *:nth-child(1) { --i: 0; }
+.stagger > *:nth-child(2) { --i: 1; }
+.stagger > *:nth-child(3) { --i: 2; }
+.stagger > *:nth-child(4) { --i: 3; }
+Apply animate-up class to:
+
+Each pricing card (with stagger on the parent)
+Each how-it-works card (with stagger)
+Each trust section item (with stagger)
+The hero demo card (animate-up with slight delay 200ms)
+
+Call observeEntrance('.animate-up') in the landing page component's useEffect.
+
+Apply all changes now. After applying, check the page at 375px mobile width and fix any overflow or layout issues. The floating demo card should be hidden on mobile (display none below 768px). The two-column hero should stack to single column on mobile."

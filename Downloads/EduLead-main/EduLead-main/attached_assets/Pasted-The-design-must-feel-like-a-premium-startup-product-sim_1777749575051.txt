@@ -1,0 +1,146 @@
+The design must feel like a premium startup product (similar to Stripe, Notion, Linear), not a generic admin dashboard.
+
+🎨 DESIGN STYLE
+Clean, minimal, high-end SaaS UI
+Primary color: Deep blue (#1E3A5F)
+Accent color: Kerala green (#2D7D46)
+Background: soft light gray (#F8FAFC)
+Typography: Inter or Poppins
+Use soft shadows, rounded corners (12px–16px), and subtle gradients
+Smooth transitions and micro-interactions
+Avoid clutter — strong visual hierarchy
+📱 MOBILE-FIRST APPROACH
+Design for mobile first, then scale to desktop
+Replace tables with card-based layouts on mobile
+Bottom navigation bar (mobile):
+Home
+Leads
+Messages
+Settings
+Desktop: sidebar navigation (collapsible)
+🧠 DASHBOARD (HOME / COMMAND CENTER)
+
+Create a “command center” dashboard, not just stats.
+
+Top Section:
+Greeting: “Good morning, [Name] 👋”
+Highlight insight card:
+“🔥 You have 3 HOT leads waiting”
+Key Cards (grid):
+Hot leads (green highlight)
+Warm leads (amber)
+Cold leads (gray)
+Unread messages
+Quota usage (progress bar with color states)
+Recent Activity:
+Recent leads (card/list format)
+Each item shows:
+Name
+Course
+Location
+Score badge
+Action buttons
+🎯 LEADS PAGE
+Mobile:
+Swipeable lead cards
+
+Each lead card:
+
+Name + score badge (colored)
+Course + location
+Intent level
+Buttons: View / Message
+Desktop:
+Table + filters (category, status, course, location)
+Sticky filter bar
+Visual cues:
+Hot → green badge + slight glow
+Warm → amber
+Cold → gray
+🔍 LEAD DETAIL PAGE (MOST IMPORTANT)
+
+Split layout:
+
+Left Panel (Info):
+Name, course, location
+Budget, timeline, intent
+Large score display
+Status dropdown
+Notes input
+Phone Number Section:
+If locked:
+Blurred number
+Lock icon
+Text: “Upgrade to Premium to unlock”
+CTA button (highlighted)
+If unlocked:
+Show number clearly
+Copy button
+Right Panel (Chat UI):
+WhatsApp-style chat
+Student messages (left, gray)
+College messages (right, blue)
+Rounded bubbles
+Input bar fixed at bottom
+Typing indicator
+Seen/delivered states
+💬 MESSAGES EXPERIENCE
+Real-time chat feel
+Clean conversation list (like WhatsApp sidebar)
+Unread badge
+Highlight active chat
+📊 ANALYTICS PAGE
+KPI cards (large numbers)
+Line chart (leads over time)
+Pie chart (hot/warm/cold)
+Funnel visualization (new → enrolled)
+Clean spacing, no clutter
+💰 PRICING PAGE
+3 modern pricing cards:
+Basic
+Pro
+Premium (highlighted with glow/border)
+Clear feature comparison
+Strong CTA buttons
+Subtle animations on hover
+🚀 LANDING PAGE
+Hero:
+Headline: “Find Qualified Students for Your College”
+Subtext: AI-powered lead generation in Malayalam
+CTA: “Get Your First Leads Free”
+Sections:
+How it works (3 steps with icons)
+Features (cards with icons)
+Results / trust indicators
+Pricing preview
+Final CTA
+⚡ MICRO-INTERACTIONS
+Hover effects on buttons/cards
+Smooth transitions (200–300ms)
+Toast notifications:
+“🔥 New hot lead assigned”
+Loading skeletons (shimmer effect)
+🧩 NAVIGATION
+Desktop:
+Sidebar with icons + labels
+Active item highlighted
+Collapsible
+Mobile:
+Bottom navigation bar
+Floating action button (optional)
+🧠 UX PRINCIPLES
+Prioritize clarity over density
+Show most important info first (lead score, intent)
+Reduce clicks — quick actions visible
+Use color to guide decisions
+Make premium features visually desirable (locked but attractive)
+🎯 FINAL GOAL
+
+The UI should feel:
+
+Premium and modern
+Fast and intuitive
+Mobile-friendly for Indian users
+Focused on helping colleges act quickly on leads
+
+Avoid generic admin dashboard designs. Make it feel like a polished SaaS product ready for real customers.

@@ -1,0 +1,26 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "K-kPvauitv3toAcleqGgi"
+uri = "file://README.md"
+type = "text"
+title = "EduLeads Kerala — Complete Project Documentation"
+
+[[outputs]]
+id = "s7P0j1ekK9UgNFfC8YZwa"
+uri = "file://innovation.md"
+type = "text"
+title = "EduLeads Kerala — Innovation Roadmap"
+
+[[outputs]]
+id = "GnlDFLMU3A2h_oBjCF2xT"
+uri = "file://instructions.md"
+type = "text"
+title = "EduLeads Kerala — Hosting & Deployment Guide"
+
+[[outputs]]
+id = "thc0UjbUI353_g-HewIcO"
+uri = "file://done.md"
+type = "text"
+title = "EduLeads Kerala — Everything Built & Implemented"

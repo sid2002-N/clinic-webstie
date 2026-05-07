@@ -1,0 +1,16 @@
+kind = "api"
+previewPath = "/api"
+title = "EduLeads Django Backend"
+version = "1.0.0"
+id = "artifacts/django-api"
+
+[[services]]
+localPort = 8000
+name = "Django API"
+paths = ["/api", "/ws", "/static"]
+
+[services.development]
+run = "bash scripts/start_django.sh"
+
+[services.env]
+PORT = "8000"

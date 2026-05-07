@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /onboarding
+Disallow: /login
+Disallow: /register
+Disallow: /api/
+
+Sitemap: https://edulead.in/sitemap.xml
